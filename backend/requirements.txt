@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+pandas
+gspread
+google-auth
+google-genai
+python-multipart  # For form data if needed
