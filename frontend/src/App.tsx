@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Layout,
     ConfigProvider,
@@ -7,7 +7,6 @@ import {
     Button,
     DatePicker,
     Menu,
-    Spin,
     message,
 } from 'antd';
 import {
@@ -22,12 +21,16 @@ import {
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import { dataService, type SheetData } from './services/dataService';
-import StakingSection from './components/StakingSection';
+import StakingSection, { type SectionRef } from './components/StakingSection';
 import TSSection from './components/TSSection';
 import POSSection from './components/POSSection';
 import ShitCodeSection from './components/ShitCodeSection';
 import RevenueSection from './components/RevenueSection';
 import DeFiSection from './components/DeFiSection';
+import AISummarySidebar from './components/AISummarySidebar';
+import EmptyDataPlaceholder from './components/EmptyDataPlaceholder';
+import LoadingData from './components/LoadingData';
+import Splitter from './components/Splitter';
 
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
@@ -85,6 +88,25 @@ const App: React.FC = () => {
         cacheTimestamp?: number;
         cacheSize?: number;
     }>({ hasCachedData: false });
+
+    // AI Summary State
+    const [aiModalVisible, setAiModalVisible] = useState(false);
+    const [aiSummary, setAiSummary] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
+    const sectionRef = useRef<SectionRef>(null);
+
+    // Split View State
+    const [splitRatio, setSplitRatio] = useState(() => {
+        const saved = localStorage.getItem('splitRatio');
+        return saved ? parseFloat(saved) : 0.7; // 默认左侧面板占70%，右侧占30%
+    });
+
+    // 保存分割比例到本地存储
+    const handleSplitChange = useCallback((ratio: number) => {
+        setSplitRatio(ratio);
+        localStorage.setItem('splitRatio', ratio.toString());
+    }, []);
 
     // 组件挂载时加载数据
     useEffect(() => {
@@ -230,17 +252,6 @@ const App: React.FC = () => {
         }
     };
 
-    // 清除缓存
-    const handleClearCache = async () => {
-        try {
-            await dataService.clearCache();
-            await updateCacheInfo();
-            message.success('缓存已清除');
-        } catch (error) {
-            message.error('清除缓存失败');
-        }
-    };
-
     const handleDateRangeChange = (
         dates: [Dayjs | null, Dayjs | null] | null
     ) => {
@@ -253,33 +264,47 @@ const App: React.FC = () => {
         setSelectedSection(key);
     };
 
-    const handleAISummary = () => {
-        message.info('AI总结功能开发中...');
+    const handleAISummary = async () => {
+        if (!sectionRef.current) {
+            message.warning('当前页面暂不支持AI总结');
+            return;
+        }
+
+        setAiModalVisible(true);
+        setAiLoading(true);
+        setAiSummary('');
+        setAiError(null);
+
+        try {
+            const { context, prompt } = sectionRef.current.getSummaryData();
+            const dataContext = JSON.stringify(context);
+            
+            const response = await dataService.getAISummary(dataContext, prompt);
+            
+            if (response.status === 'success') {
+                setAiSummary(response.summary);
+            } else {
+                setAiError(response.message || '分析失败');
+            }
+        } catch (error) {
+            console.error('AI Summary failed:', error);
+            setAiError('无法生成AI总结，请稍后重试。');
+        } finally {
+            setAiLoading(false);
+        }
     };
 
     // 渲染当前选中的Section组件
     const renderCurrentSection = () => {
         if (!data) {
-            return (
-                <div className="section-placeholder">
-                    <Title level={2} className="neon-text">
-                        暂无数据
-                    </Title>
-                    <p style={{ color: '#666', marginBottom: '20px' }}>
-                        请点击右上角的"刷新数据"按钮从后端获取数据
-                    </p>
-                    <div style={{ fontSize: '12px', color: '#666' }}>
-                        <p>API端点: http://localhost:8000/api/data</p>
-                        <p>请确保后端服务正在运行</p>
-                    </div>
-                </div>
-            );
+            return <EmptyDataPlaceholder />;
         }
 
         switch (selectedSection) {
             case 'STAKING':
                 return (
                     <StakingSection
+                        ref={sectionRef}
                         key={`staking-${selectedSection}`}
                         data={data}
                         error={null}
@@ -409,7 +434,6 @@ const App: React.FC = () => {
         >
             <Layout
                 style={{
-                    minHeight: '100vh',
                     background: 'radial-gradient(ellipse at center, rgba(0, 5, 15, 0.98) 0%, rgba(0, 0, 10, 0.99) 100%)',
                     backgroundImage: `
                         radial-gradient(circle at 20% 80%, rgba(0, 255, 255, 0.08) 0%, transparent 50%),
@@ -417,6 +441,9 @@ const App: React.FC = () => {
                         radial-gradient(circle at 40% 40%, rgba(0, 255, 255, 0.03) 0%, transparent 50%),
                         radial-gradient(circle at 60% 70%, rgba(0, 255, 255, 0.02) 0%, transparent 40%)
                     `,
+                    height: '100vh',
+                    overflow: 'hidden',
+                    padding: '0',
                 }}
             >
                 {/* 顶部Header */}
@@ -477,34 +504,27 @@ const App: React.FC = () => {
                             {loading ? '刷新中...' : '刷新数据'}
                         </Button>
 
-                        {/* Debug模式下显示清除缓存按钮 */}
-                        {cacheInfo.hasCachedData && (
-                            <Button
-                                size="small"
-                                onClick={handleClearCache}
-                                style={{
-                                    opacity: 0.7,
-                                    fontSize: '11px',
-                                }}
-                            >
-                                清除缓存
-                            </Button>
-                        )}
                     </div>
                 </Header>
 
-                <Layout>
+                <Layout style={{ 
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'row',
+                    margin: '0',
+                }}>
                     {/* 左侧Section选择器 */}
                     <Sider
-                        width={240}
                         style={{
+                            width: 240,
+                            height: '100%',
                             background: 'rgba(0, 5, 15, 0.95)',
                             borderRight: '2px solid #00FFFF',
                             backdropFilter: 'blur(10px)',
                             boxShadow: '2px 0 20px rgba(0, 255, 255, 0.3)',
                         }}
                     >
-                        <div style={{ padding: '20px 0' }}>
+                        <div style={{ padding: '20px 0', height: '100%' }}>
                             <Menu
                                 key={`menu-${selectedSection}`}
                                 mode="inline"
@@ -534,21 +554,31 @@ const App: React.FC = () => {
                     </Sider>
 
                     {/* 右侧内容区域 */}
-                    <Layout style={{ padding: 0 }}>
+                    <Layout style={{ 
+                        padding: 0,
+                        margin: 0,
+                        flex: 1,
+                        height: '100%',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}>
                         {/* 右侧顶部导航栏 */}
-                        <div
+                        <Header
                             style={{
                                 background: 'rgba(0, 5, 15, 0.95)',
-                                padding: '16px 24px',
+                                padding: '12px 24px',
                                 borderBottom: '2px solid #00FFFF',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 backdropFilter: 'blur(10px)',
                                 boxShadow: '0 0 15px rgba(0, 255, 255, 0.2)',
+                                height: 'auto',
+                                lineHeight: 'normal',
                             }}
                         >
-                            {/* 日期选择器 */}
+
                             <RangePicker
                                 value={dateRange}
                                 onChange={handleDateRangeChange}
@@ -559,7 +589,6 @@ const App: React.FC = () => {
                                 }}
                             />
 
-                            {/* AI总结按钮 */}
                             <Button
                                 icon={<RobotOutlined />}
                                 onClick={handleAISummary}
@@ -571,47 +600,71 @@ const App: React.FC = () => {
                             >
                                 AI总结
                             </Button>
-                        </div>
+                        </Header>
 
-                        {/* 主要内容区域 */}
+                        {/* 主要内容区域 - 分割视图 */}
                         <Content
                             style={{
-                                margin: '24px',
-                                padding: '24px',
-                                height: 'calc(100vh - 200px)',
-                                overflowY: 'auto',
+                                margin: 0,
+                                padding: 0,
+                                display: 'flex',
+                                flexDirection: 'row',
+                                overflow: 'hidden',
                             }}
                         >
-                            {loading ? (
+                            {/* 左侧面板 - 数据展示 */}
+                            <div
+                                style={{
+                                    width: aiModalVisible ? `${splitRatio * 100}%` : '100%',
+                                    padding: '0',
+                                    overflowY: 'auto',
+                                    transition: 'width 0.3s ease-in-out',
+                                }}
+                            >
+                                {loading ? (
+                                    <LoadingData />
+                                ) : (
+                                    renderCurrentSection()
+                                )}
+                            </div>
+
+                            {/* 分割线 - 只在AI分析打开时显示 */}
+                            {aiModalVisible && (
+                                <Splitter
+                                    direction="vertical"
+                                    onSplit={handleSplitChange}
+                                    minRatio={0.3}
+                                    maxRatio={0.8}
+                                />
+                            )}
+
+                            {/* 右侧面板 - AI分析 */}
+                            {aiModalVisible && (
                                 <div
                                     style={{
-                                        textAlign: 'center',
-                                        paddingTop: '100px',
+                                        width: `${(1 - splitRatio) * 100}%`,
+                                        overflow: 'hidden',
                                     }}
                                 >
-                                    <Spin size="large" />
-                                    <div
-                                        style={{
-                                            marginTop: '16px',
-                                            color: '#00FF41',
-                                        }}
-                                    >
-                                        正在加载数据...
-                                    </div>
-                                    <div
-                                        style={{
-                                            marginTop: '8px',
-                                            color: '#666',
-                                            fontSize: '12px',
-                                        }}
-                                    >
-                                        连接到 http://localhost:8000/api/data
-                                    </div>
+                                    <AISummarySidebar
+                                        onClose={() => setAiModalVisible(false)}
+                                        summary={aiSummary}
+                                        loading={aiLoading}
+                                        error={aiError}
+                                    />
                                 </div>
-                            ) : (
-                                renderCurrentSection()
                             )}
                         </Content>
+
+                        {/* <Footer
+                            style={{
+                                textAlign: 'center',
+                                padding: '12px 24px',
+                            }}
+                        >
+                            <div>© 2023 OSHIT Data Visualization</div>
+                        </Footer> */}
+
                     </Layout>
                 </Layout>
             </Layout>

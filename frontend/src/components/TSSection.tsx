@@ -299,7 +299,10 @@ const TSSection: React.FC<TSSectionProps> = ({
         // Top users aggregation
         const userMap = new Map<string, { txCount: number; shitSent: number }>();
         
-        tsData.forEach(record => {
+        // Filter only TS_Category === 0 (normal TS claims, excluding references and lucky draws)
+        const filteredTsData = tsData.filter(r => r.TS_Category === 0);
+        
+        filteredTsData.forEach(record => {
             const address = record['Receiver Address'];
             if (!userMap.has(address)) {
                 userMap.set(address, { txCount: 0, shitSent: 0 });
@@ -448,10 +451,11 @@ const TSSection: React.FC<TSSectionProps> = ({
     }
 
     return (
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 24 }}>
             <h2
                 style={{
                     color: theme.colors.primary,
+                    marginTop: 0,
                     marginBottom: '24px',
                     textShadow: '0 0 10px rgba(0, 255, 255, 0.5)',
                     fontFamily: 'monospace',

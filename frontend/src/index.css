@@ -1,10 +1,10 @@
 body {
     margin: 0;
+    padding: 0;
     font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background:
-        /* 网格线条背景 */
         repeating-linear-gradient(
             90deg,
             transparent,
@@ -19,7 +19,6 @@ body {
             rgba(0, 255, 255, 0.03) 3px,
             rgba(0, 255, 255, 0.03) 6px
         ),
-        /* 原始的径向渐变背景 */
         radial-gradient(
             ellipse at center,
             rgba(0, 20, 40, 0.9) 0%,
@@ -42,19 +41,12 @@ body {
             transparent 50%
         );
     background-attachment: fixed;
-    min-height: 100vh;
     color: #00ffff;
     overflow: hidden;
 }
 
 code {
     font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-}
-
-/* 全局布局样式 */
-.ant-layout {
-    background: transparent !important;
-    min-height: 100vh;
 }
 
 /* Header样式 - 宇宙仪表风格 */
@@ -81,70 +73,6 @@ code {
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
-}
-
-/* Section placeholder样式 - 赛博朋克风格 */
-.section-placeholder {
-    padding: 60px;
-    text-align: center;
-    background:
-        radial-gradient(
-            circle at center,
-            rgba(0, 255, 65, 0.05) 0%,
-            transparent 70%
-        ),
-        rgba(0, 10, 20, 0.8);
-    border-radius: 20px;
-    border: 2px solid rgba(0, 255, 65, 0.3);
-    min-height: 500px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    box-shadow:
-        0 0 30px rgba(0, 255, 65, 0.1),
-        inset 0 1px 0 rgba(0, 255, 65, 0.1);
-}
-
-.section-placeholder::before {
-    content: '';
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    right: 20px;
-    bottom: 20px;
-    border: 1px solid rgba(0, 255, 65, 0.2);
-    border-radius: 16px;
-    pointer-events: none;
-}
-
-.section-placeholder p {
-    color: #00ffff;
-    font-size: 18px;
-    margin: 20px 0;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-    font-family: 'Courier New', monospace;
-}
-
-.section-placeholder div {
-    color: #888;
-    font-size: 14px;
-    text-shadow: 0 0 5px rgba(136, 136, 136, 0.3);
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .dashboard-header {
-        flex-direction: column !important;
-        gap: 16px !important;
-        padding: 16px !important;
-    }
-
-    .section-placeholder {
-        padding: 30px !important;
-        min-height: 400px !important;
-    }
 }
 
 /* Menu选中状态样式 */

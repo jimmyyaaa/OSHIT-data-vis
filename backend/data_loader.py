@@ -4,7 +4,6 @@ import pandas as pd
 import logging
 from google.oauth2.service_account import Credentials
 import os
-from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +15,7 @@ def load_sheet_data(sheet_names):
 
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
-    load_dotenv()
-
-    # Load service account from file
+    # Load service account from file (environment variables already loaded in main.py)
     creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if not creds_path:
         raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")

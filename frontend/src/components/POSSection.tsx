@@ -273,10 +273,11 @@ const POSSection: React.FC<POSSectionProps> = ({
     }
 
     return (
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 24 }}>
             <h2
                 style={{
                     color: theme.colors.primary,
+                    marginTop: 0,
                     marginBottom: '24px',
                     textShadow: '0 0 10px rgba(0, 255, 255, 0.5)',
                     fontFamily: 'monospace',

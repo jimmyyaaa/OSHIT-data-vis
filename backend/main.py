@@ -2,22 +2,36 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import json
+from dotenv import load_dotenv
 import pandas as pd
 from data_loader import load_sheet_data
 from ai_helper import get_ai_summary
 
-app = FastAPI(title="OSHIT Data API", version="1.0.0")
+app = FastAPI(
+    title="OSHIT Data API", 
+    version="1.0.0",
+    description="API for OSHIT data visualization",
+)
+
+# Load environment-specific .env file
+environment = os.getenv("ENVIRONMENT", "local")
+if environment == "production":
+    load_dotenv(".env.production")
+elif environment == "local":
+    load_dotenv(".env.local")
+
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 # CORS middleware to allow frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_origins=allowed_origins,  # In production, specify your frontend URL
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],  # Specify allowed methods
     allow_headers=["*"],
 )
 
-@app.get("/api/data")
+@app.get("/getDataFromSheets")
 async def get_data():
     """
     Returns all sheet data as JSON.
@@ -38,7 +52,7 @@ async def get_data():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/api/ai/summary")
+@app.post("/getAISummary")
 async def generate_ai_summary(request: dict):
     """
     Generate AI summary for provided data context.
@@ -59,7 +73,7 @@ async def generate_ai_summary(request: dict):
         if not system_instruction:
             return {"status": "error", "message": "system_instruction is required"}
 
-        summary = get_ai_summary(data_context, system_instruction)
+        summary = await get_ai_summary(data_context, system_instruction)
 
         if summary.startswith("Error"):
             return {"status": "error", "message": summary}

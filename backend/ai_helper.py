@@ -2,10 +2,8 @@ from google import genai
 from google.genai import types
 import os
 
-# Configuration
-AI_TEXT_MODEL = "gemini-2.5-flash"
 
-def get_ai_summary(data_context: str, system_instruction: str) -> str:
+async def get_ai_summary(data_context: str, system_instruction: str) -> str:
     """
     Generate AI summary using Google GenAI.
 
@@ -17,16 +15,21 @@ def get_ai_summary(data_context: str, system_instruction: str) -> str:
         str: Generated summary or error message
     """
     try:
-        # Get API key from environment variable
+        # Get API key from environment variable (already loaded in main.py)
+        model = os.getenv("AI_TEXT_MODEL")
         api_key = os.getenv("GOOGLE_GENAI_API_KEY")
+
+        if not model:
+            raise Exception("AI_TEXT_MODEL environment variable not set")
+
         if not api_key:
             raise Exception("GOOGLE_GENAI_API_KEY environment variable not set")
 
-        client = genai.Client(api_key=api_key)
+        aclient = genai.Client(api_key=api_key).aio
 
         try:
-            response = client.models.generate_content(
-                model=AI_TEXT_MODEL,
+            response = await aclient.models.generate_content(
+                model=model,
                 contents=data_context,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
@@ -47,7 +50,4 @@ def get_ai_summary(data_context: str, system_instruction: str) -> str:
         return f"Error generating AI summary: {str(e)}"
 
     finally:
-        try:
-            client.close()
-        except:
-            pass
+        await aclient.aclose()

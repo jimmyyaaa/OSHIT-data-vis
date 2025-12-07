@@ -113,6 +113,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+backend/.env*
 
 # Spyder project settings
 .spyderproject
@@ -128,3 +129,66 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Project specific
+# SSH keys and credentials
+*.pem
+*.key
+credentials/
+!credentials/.gitkeep
+
+
+# Upload scripts (keep for deployment)
+# upload_backend.sh
+
+# OS generated files
+Thumbs.db
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Temporary files
+.tmp/
+temp/
+tmp/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# API documentation
+api-docs/
+docs/api/
+
+# Build artifacts
+build/
+dist/
+*.tgz
+*.tar.gz
+
+# IDE and Editor
+.vscode/settings.json
+.vscode/launch.json
+.idea/workspace.xml
+.idea/tasks.xml
+
+# Service files
+*.service
+
+# Conda environments
+conda-env/
+miniconda3/
+anaconda3/
+
+# Server logs
+server.log
+access.log
+error.log
+
+# backend files
+backend/start_local.sh

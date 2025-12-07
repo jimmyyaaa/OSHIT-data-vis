@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, Row, Col, Alert, Spin } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
@@ -18,6 +18,12 @@ type TopStaker = {
     amount: number;
 };
 
+export interface SectionRef {
+    getSummaryData: () => {
+        context: any;
+        prompt: string;
+    };
+}
 
 interface StakingSectionProps {
     data: SheetData | null;
@@ -40,16 +46,92 @@ interface StakingMetrics {
     rewardAmountPrev: number;
 }
 
-const StakingSection: React.FC<StakingSectionProps> = ({
+const STAKING_SYSTEM_PROMPT = `
+You are the Lead Data Analyst for the OSHIT Web3 Project, specializing in Staking ecosystem health.
+
+**Your Goal**: Analyze the provided Staking data context to provide deep, actionable insights for the operations team. Do not just describe the numbers; explain *why* they matter and *what* to do next.
+
+**Data Context Definitions**:
+- \`metrics\`: Key performance indicators for the selected period.
+  - \`totalStaked\`: The total amount of SHIT tokens staked by users in this period. Represents new capital inflow.
+  - \`totalUnstaked\`: The total amount of SHIT tokens withdrawn by users in this period. Represents capital outflow.
+  - \`netStaked\`: (Total Staked - Total Unstaked). Positive means TVL growth; negative means TVL contraction. This is the most critical health indicator.
+  - \`stakingTxCount\`: The number of individual staking transactions. Indicates user participation frequency.
+  - \`rewardsDistributed\`: The total amount of SHIT tokens distributed as rewards to stakers.
+  - \`rewardsTxCount\`: The number of reward distribution transactions.
+  - \`prev_*\`: The value of the same metric from the *previous* period of the same length. Use these to calculate period-over-period growth rates (e.g., (netStaked - prev_netStaked) / prev_netStaked).
+- \`dailyTrend\`: An array showing daily \`netStake\` and \`rewards\`. Use this to identify specific days with abnormal activity (spikes or drops).
+- \`topStakers\`: A list of the top 5 addresses by staking amount in this period. Use this to assess "Whale" concentration and behavior.
+**Response Format (Strict Markdown)**:
+Please structure your response exactly as follows:
+
+### 📊 Executive Summary
+*A 1-sentence high-level overview of the staking health (e.g., "Staking TVL is growing steadily despite market volatility.").*
+
+### 🧐 Key Insights
+- **Net Flow Analysis**: Analyze the \`netStaked\` value and compare it with \`prev_netStaked\`. Is capital flowing in or out? Is the rate accelerating or decelerating compared to the previous period?
+- **Whale Watch**: Comment on the top stakers' activity. Do the top 5 addresses dominate the pool? (Concentration risk).
+- **Reward Efficiency**: Are rewards driving sufficient staking activity? (Compare rewards distributed vs. new stake).
+
+### 🚀 Strategic Recommendations
+1. **[Actionable Strategy 1]**: Based on the data, what should we do immediately? (e.g., "Launch a campaign to target smaller wallets" or "Adjust APY").
+2. **[Actionable Strategy 2]**: A longer-term suggestion for retention or growth.
+
+**Tone**: Professional, data-driven, yet "Cyberpunk/Web3 Native" (concise, impactful).
+`;
+
+const StakingSection = forwardRef<SectionRef, StakingSectionProps>(({
     data,
     error,
     dateRange,
-}) => {
+}, ref) => {
     
     const [metrics, setMetrics] = useState<StakingMetrics | null>(null);
     const [dailyData, setDailyData] = useState<DailyDataEntry[]>([]);
     const [topStakers, setTopStakers] = useState<TopStaker[]>([]);
     const [isCalculating, setIsCalculating] = useState(false);
+
+    useImperativeHandle(ref, () => ({
+        getSummaryData: () => {
+            return {
+                context: {
+                    metrics: metrics ? {
+                        totalStaked: metrics.totalStakeCurrent,
+                        prev_totalStaked: metrics.totalStakePrev,
+                        
+                        totalUnstaked: metrics.totalUnstakeCurrent,
+                        prev_totalUnstaked: metrics.totalUnstakePrev,
+                        
+                        netStaked: metrics.netStakeCurrent,
+                        prev_netStaked: metrics.netStakePrev,
+                        
+                        stakingTxCount: metrics.stakeCountCurrent,
+                        prev_stakingTxCount: metrics.stakeCountPrev,
+                        
+                        rewardsDistributed: metrics.rewardAmountCurrent,
+                        prev_rewardsDistributed: metrics.rewardAmountPrev,
+                        
+                        rewardsTxCount: metrics.rewardCountCurrent,
+                        prev_rewardsTxCount: metrics.rewardCountPrev
+                    } : null,
+                    dailyTrend: dailyData.map(d => ({
+                        date: d.date,
+                        netStake: d.stake,
+                        rewards: d.rewards
+                    })),
+                    topStakers: topStakers.slice(0, 5).map(s => ({
+                        address: s.address,
+                        amount: s.amount
+                    })),
+                    period: {
+                        start: dateRange[0].format('YYYY-MM-DD'),
+                        end: dateRange[1].format('YYYY-MM-DD')
+                    }
+                },
+                prompt: STAKING_SYSTEM_PROMPT
+            };
+        }
+    }));
 
     useEffect(() => {
         if (data && data.Staking_Amount_Log && data.Staking_Log) {
@@ -290,10 +372,11 @@ const StakingSection: React.FC<StakingSectionProps> = ({
     }
 
     return (
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 24 }}>
             <h2
                 style={{
                     color: theme.colors.primary,
+                    marginTop: 0,
                     marginBottom: '24px',
                     textShadow: '0 0 10px rgba(0, 255, 255, 0.5)',
                     fontFamily: 'monospace',
@@ -476,6 +559,6 @@ const StakingSection: React.FC<StakingSectionProps> = ({
             {/* AI analysis removed */}
         </div>
     );
-};
+});
 
 export default StakingSection;

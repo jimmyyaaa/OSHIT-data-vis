@@ -274,7 +274,7 @@ class IndexedDBManager {
 
 // DataService主类
 class DataService {
-    private baseURL = 'http://localhost:8000';
+    private baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5005';
 
     private dbManager = new IndexedDBManager();
     private isInitialized = false;
@@ -312,7 +312,7 @@ class DataService {
             // 从API获取新数据
             console.log('Fetching fresh data from API...');
             const response = await axios.get<APIResponse>(
-                `${this.baseURL}/api/data`,
+                `${this.baseURL}/getDataFromSheets`,
                 {
                     timeout: 300000, // 30 seconds timeout
                 }
@@ -433,6 +433,31 @@ class DataService {
         } catch (error) {
             console.error('Failed to get cached data:', error);
             return null;
+        }
+    }
+
+    async getAISummary(dataContext: string, systemInstruction: string) {
+        try {
+            const response = await fetch(`${this.baseURL}/getAISummary`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    data_context: dataContext,
+                    system_instruction: systemInstruction,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to generate AI summary');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error generating AI summary:', error);
+            throw error;
         }
     }
 }
