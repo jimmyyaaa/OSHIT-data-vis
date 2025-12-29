@@ -1,92 +1,99 @@
-export const theme = {
-    colors: {
-        primary: '#00FFFF', // Cyan
-        secondary: '#FF69B4', // Hot Pink (replacing Purple)
-        text: '#00FFFF',
-        textSecondary: '#FF69B4',
-        grid: 'rgba(0, 255, 255, 0.1)',
-        tooltipBg: 'rgba(0, 5, 15, 0.95)',
-        axis: '#00FFFF',
-    },
-    card: {
-        background: 'rgba(0, 10, 20, 0.8)',
-        border: '2px solid #00FFFF',
-        backdropFilter: 'blur(10px)',
-        boxShadow: '0 0 15px rgba(0, 255, 255, 0.2)',
-        borderRadius: '8px',
-    },
-    chart: {
-        grid: {
-            top: '3%',
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            containLabel: false,
-        },
-        textStyle: {
-            color: '#00FFFF',
-        },
-    }
+/**
+ * 颜色常量 - 符合 Ant Design 设计语言
+ */
+export const colors = {
+  primary: '#00FFFF',
+  secondary: '#FF69B4',
+  success: '#00FFA3',
+  error: '#FF4B4B',
+  warning: '#FFAA00',
+  text: '#00FFFF', // 向后兼容
+  textPrimary: '#00FFFF',
+  textSecondary: '#FF69B4',
+  textTertiary: 'rgba(0, 255, 255, 0.45)',
+  grid: 'rgba(0, 255, 255, 0.1)',
+  tooltipBg: 'rgba(0, 5, 15, 0.95)',
+  axis: '#00FFFF',
+  borderColor: '#00FFFF',
+  borderColorLight: 'rgba(0, 255, 255, 0.2)',
+  bgDark: 'rgba(0, 10, 20, 0.8)',
+  bgDarker: 'rgba(0, 15, 30, 0.9)',
 };
 
-export const getCommonChartOptions = () => ({
-    backgroundColor: 'transparent',
-    tooltip: {
-        trigger: 'axis',
-        backgroundColor: theme.colors.tooltipBg,
-        borderColor: theme.colors.primary,
-        borderWidth: 1,
-        textStyle: { color: theme.colors.primary },
-        axisPointer: {
-            type: 'cross',
-            lineStyle: {
-                color: theme.colors.primary,
-                width: 1,
-                opacity: 0.6,
-            },
-        },
-    },
-    grid: theme.chart.grid,
-    textStyle: theme.chart.textStyle,
-    xAxis: {
-        axisLine: { lineStyle: { color: theme.colors.axis } },
-        axisLabel: { color: theme.colors.axis },
-        axisTick: { lineStyle: { color: theme.colors.axis } },
-        splitLine: { show: false },
-    },
-    yAxis: {
-        axisLine: { lineStyle: { color: theme.colors.axis } },
-        axisLabel: { color: theme.colors.axis },
-        axisTick: { lineStyle: { color: theme.colors.axis } },
-        splitLine: {
-            lineStyle: {
-                color: theme.colors.grid,
-                type: 'dashed',
-            },
-        },
-    },
-});
+/**
+ * 卡片样式配置（用于Card组件的styles属性）
+ */
+export const cardStyles = {
+  root: {
+    background: colors.bgDark,
+    border: `2px solid ${colors.primary}`,
+    borderRadius: '8px',
+    boxShadow: `0 0 15px rgba(0, 255, 255, 0.2)`,
+    backdropFilter: 'blur(10px)',
+  },
+  body: {
+    padding: '16px',
+  },
+  header: {
+    borderBottomColor: `rgba(0, 255, 255, 0.1)`,
+    paddingBottom: '12px',
+  },
+};
 
+/**
+ * 图表网格配置
+ */
+export const chartGrid = {
+  top: '3%',
+  left: '3%',
+  right: '4%',
+  bottom: '3%',
+  containLabel: false,
+};
+
+/**
+ * 向后兼容的 theme 对象
+ */
+export const theme = {
+  colors,
+  card: cardStyles,
+  chart: {
+    grid: chartGrid,
+    textStyle: {
+      color: colors.primary,
+    },
+  },
+};
+
+/**
+ * Tooltip 配置工厂函数
+ */
 export const getTooltipOption = (numberFormatter: (val: number) => string = formatDecimal) => ({
-    trigger: 'axis',
-    backgroundColor: theme.colors.tooltipBg,
-    borderColor: theme.colors.primary,
+    trigger: 'axis' as const,
+    backgroundColor: colors.tooltipBg,
+    borderColor: colors.primary,
     borderWidth: 1,
-    textStyle: { color: theme.colors.primary },
-    axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } },
+    textStyle: { color: colors.primary },
+    axisPointer: { 
+        type: 'cross' as const,
+        label: { backgroundColor: '#6a7985' } 
+    },
     formatter: (params: any) => {
         if (!Array.isArray(params)) {
-            return params.name + '<br/>' + params.marker + params.seriesName + ': ' + numberFormatter(params.value) + '<br/>';
+            return `${params.name}<br/>${params.marker} ${params.seriesName}: ${numberFormatter(params.value)}<br/>`;
         }
-        let result = params[0].name + '<br/>';
+        let result = `${params[0].name}<br/>`;
         params.forEach((param: any) => {
-            result += param.marker + param.seriesName + ': ' + numberFormatter(param.value) + '<br/>';
+            result += `${param.marker} ${param.seriesName}: ${numberFormatter(param.value)}<br/>`;
         });
         return result;
-    }
+    },
 });
 
-export const getYAxisOption = (name?: string, color = theme.colors.primary, formatter = formatNumber) => ({
+/**
+ * Y轴配置工厂函数
+ */
+export const getYAxisOption = (name?: string, color = colors.primary, formatter = formatNumber) => ({
     type: 'value',
     name: name,
     max: getChartMax,
@@ -96,10 +103,13 @@ export const getYAxisOption = (name?: string, color = theme.colors.primary, form
         formatter: formatter
     },
     axisLine: { lineStyle: { color: color } },
-    splitLine: { lineStyle: { color: theme.colors.grid, type: 'dashed' } }
+    splitLine: { lineStyle: { color: colors.grid, type: 'dashed' } }
 });
 
-export const getBarSeriesStyle = (color = theme.colors.primary) => ({
+/**
+ * 柱状图系列样式工厂函数
+ */
+export const getBarSeriesStyle = (color = colors.primary) => ({
     type: 'bar',
     itemStyle: {
         color: color,
@@ -140,6 +150,9 @@ export const getChartMax = (value: { max: number }) => {
     return value.max / 0.9;
 };
 
+/**
+ * 值轴配置工厂函数
+ */
 export const getValueAxisStyle = (name?: string) => ({
     type: 'value',
     name: name,
@@ -147,20 +160,20 @@ export const getValueAxisStyle = (name?: string) => ({
     nameLocation: 'middle',
     nameGap: 30,
     nameTextStyle: {
-        color: theme.colors.primary,
+        color: colors.primary,
     },
     axisLabel: {
-        color: theme.colors.primary,
+        color: colors.primary,
         formatter: formatNumber,
     },
     axisLine: {
         lineStyle: {
-            color: theme.colors.primary,
+            color: colors.primary,
         },
     },
     splitLine: {
         lineStyle: {
-            color: theme.colors.grid,
+            color: colors.grid,
             type: 'dashed',
         },
     },
@@ -188,7 +201,10 @@ export const interpolateColor = (startColor: string, endColor: string, factor: n
     return `rgb(${r}, ${g}, ${b})`;
 };
 
-export const getGradientBarData = (data: any[], valueKey: string, startColor = theme.colors.secondary, endColor = theme.colors.primary) => {
+/**
+ * 渐变柱状图数据处理
+ */
+export const getGradientBarData = (data: any[], valueKey: string, startColor = colors.secondary, endColor = colors.primary) => {
     return data.map((item, index) => {
         const color = interpolateColor(
             startColor,
@@ -198,14 +214,14 @@ export const getGradientBarData = (data: any[], valueKey: string, startColor = t
         return {
             value: item[valueKey],
             itemStyle: {
-                color: color,
+                color,
                 shadowColor: color,
                 shadowBlur: 10,
                 borderColor: color,
                 borderWidth: 1
             },
             label: {
-                color: color
+                color
             },
             // Preserve other properties
             ...item
@@ -213,7 +229,10 @@ export const getGradientBarData = (data: any[], valueKey: string, startColor = t
     });
 };
 
-export const getLineSeriesStyle = (color = theme.colors.secondary) => ({
+/**
+ * 折线图系列样式工厂函数
+ */
+export const getLineSeriesStyle = (color = colors.secondary) => ({
     type: 'line',
     smooth: true,
     symbol: 'circle',

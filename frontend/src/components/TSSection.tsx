@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Alert, Table, Spin } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
-import { theme, getBarSeriesStyle, getLineSeriesStyle, getGradientBarData, getValueAxisStyle, formatNumber, formatDecimal, formatSOL, formatSOLNumber, getTooltipOption, getYAxisOption } from '../theme';
+import { theme, getBarSeriesStyle, getLineSeriesStyle, getGradientBarData, getValueAxisStyle, formatNumber, formatDecimal, formatSOL, formatSOLNumber, getTooltipOption, getYAxisOption, cardStyles } from '../theme';
 import { StatisticCard } from './ui';
 import type { SheetData, TSRecordEntry } from '../services/dataService';
 
@@ -637,7 +637,10 @@ const TSSection: React.FC<TSSectionProps> = ({
                     <Col xs={24} lg={12}>
                         <Card
                             title="每小时交易量热力图 (Tx Count)"
-                            style={theme.card}
+                            styles={{
+                                root: cardStyles.root,
+                                body: cardStyles.body,
+                            }}
                         >
                             <ReactECharts
                                 option={{
@@ -710,7 +713,10 @@ const TSSection: React.FC<TSSectionProps> = ({
                     <Col xs={24} lg={12}>
                         <Card
                             title="每日 SHIT 发放 vs SOL 收入"
-                            style={theme.card}
+                            styles={{
+                                root: cardStyles.root,
+                                body: cardStyles.body,
+                            }}
                         >
                             <ReactECharts
                                 option={{
@@ -760,7 +766,10 @@ const TSSection: React.FC<TSSectionProps> = ({
                     <Col xs={24}>
                         <Card
                             title="Top 10 活跃用户 (按交易次数)"
-                            style={theme.card}
+                            styles={{
+                                root: cardStyles.root,
+                                body: cardStyles.body,
+                            }}
                         >
                             <ReactECharts
                                 option={{

@@ -1,11 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
-import json
+import logging
 from dotenv import load_dotenv
-import pandas as pd
-from data_loader import load_sheet_data
-from ai_helper import get_ai_summary
+from data_cache import data_cache
+from routes import calculate_router, data_router, ai_router
+
+# 配置logging - 显示所有日志级别
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="OSHIT Data API", 
@@ -31,54 +37,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/getDataFromSheets")
-async def get_data():
-    """
-    Returns all sheet data as JSON.
-    """
+# 启动事件：应用启动时自动加载缓存数据
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时自动加载数据到缓存"""
     try:
-        sheet_names = ["TS_Log", "POS_Log", "Staking_Log", "Staking_Amount_Log", "ShitCode_Log", "TS_Discord", "SHIT_Price_Log", "Liq_Pool_Activity"]
-        data = load_sheet_data(sheet_names)
-        # Convert DataFrames to dict for JSON serialization
-        result = {}
-        for sheet_name, df in data.items():
-            # Convert datetime columns to string
-            df_copy = df.copy()
-            for col in df_copy.columns:
-                if pd.api.types.is_datetime64_any_dtype(df_copy[col]):
-                    df_copy[col] = df_copy[col].astype(str)
-            result[sheet_name] = df_copy.to_dict('records')
-        return {"status": "success", "data": result}
+        print("\n" + "="*50)
+        print("🚀 应用启动中...")
+        print("="*50)
+        
+        # 优先从磁盘/内存缓存加载，无缓存时从 Google Sheet 拉取
+        await data_cache.load_data(force_refresh=False)
+        
+        # 输出缓存信息
+        cache_info = data_cache.get_cache_info()
+        print(f"\n✅ 缓存状态:")
+        print(f"   - 内存缓存: {'✅' if cache_info['has_memory_cache'] else '❌'}")
+        print(f"   - 磁盘缓存: {'✅' if cache_info['has_disk_cache'] else '❌'}")
+        if cache_info['disk_cache_size_mb']:
+            print(f"   - 缓存大小: {cache_info['disk_cache_size_mb']}MB")
+        if cache_info['last_update']:
+            print(f"   - 最后更新: {cache_info['last_update']}")
+        print("="*50 + "\n")
+        
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        print(f"\n⚠️ 启动时加载数据失败: {e}")
+        print("💡 可以通过调用 POST /loadData 手动加载数据\n")
 
-@app.post("/getAISummary")
-async def generate_ai_summary(request: dict):
-    """
-    Generate AI summary for provided data context.
+app.include_router(calculate_router)
+app.include_router(data_router)
+app.include_router(ai_router)
 
-    Expected request body:
-    {
-        "data_context": "string with data to analyze",
-        "system_instruction": "instruction for the AI model"
-    }
-    """
-    try:
-        data_context = request.get("data_context", "")
-        system_instruction = request.get("system_instruction", "")
-
-        if not data_context:
-            return {"status": "error", "message": "data_context is required"}
-
-        if not system_instruction:
-            return {"status": "error", "message": "system_instruction is required"}
-
-        summary = await get_ai_summary(data_context, system_instruction)
-
-        if summary.startswith("Error"):
-            return {"status": "error", "message": summary}
-        else:
-            return {"status": "success", "summary": summary}
-
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to generate AI summary: {str(e)}"}

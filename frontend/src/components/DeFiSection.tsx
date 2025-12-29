@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Alert, Table, Spin } from 'antd';
 import dayjs from 'dayjs';
 import ReactECharts from 'echarts-for-react';
-import { theme, getLineSeriesStyle, getBarSeriesStyle, formatDecimal, formatNumber, getTooltipOption, getYAxisOption } from '../theme';
+import { theme, getLineSeriesStyle, getBarSeriesStyle, formatDecimal, formatNumber, getTooltipOption, getYAxisOption, cardStyles } from '../theme';
 import { StatisticCard } from './ui';
 import type { SheetData } from '../services/dataService';
 
@@ -621,7 +621,10 @@ const DeFiSection: React.FC<DeFiSectionProps> = ({
                 <Col xs={24} lg={24}>
                     <Card
                         title={<span style={{ color: theme.colors.primary }}>SHIT Price</span>}
-                        style={theme.card}
+                        styles={{
+                            root: cardStyles.root,
+                            body: cardStyles.body,
+                        }}
                         headStyle={{ borderBottom: `1px solid ${theme.colors.primary}` }}
                     >
                     <ReactECharts option={getPriceOption()} style={{ height: '400px' }} />
@@ -631,7 +634,10 @@ const DeFiSection: React.FC<DeFiSectionProps> = ({
             <Col span={24}>
                 <Card 
                     title={<span style={{ color: theme.colors.primary }}>Trading Volume & Net Flow</span>}
-                    style={theme.card}
+                    styles={{
+                        root: cardStyles.root,
+                        body: cardStyles.body,
+                    }}
                     headStyle={{ borderBottom: `1px solid ${theme.colors.primary}` }}
                 >
                     <ReactECharts option={getVolumeOption()} style={{ height: '400px' }} />
@@ -641,7 +647,10 @@ const DeFiSection: React.FC<DeFiSectionProps> = ({
             <Col span={12}>
                 <Card 
                     title={<span style={{ color: theme.colors.primary }}>Liquidity Operations</span>}
-                    style={theme.card}
+                    styles={{
+                        root: cardStyles.root,
+                        body: cardStyles.body,
+                    }}
                     headStyle={{ borderBottom: `1px solid ${theme.colors.primary}` }}
                 >
                     <ReactECharts option={getLiquidityOption()} style={{ height: '400px' }} />
@@ -651,7 +660,10 @@ const DeFiSection: React.FC<DeFiSectionProps> = ({
             <Col span={12}>
                 <Card 
                     title={<span style={{ color: theme.colors.primary }}>Sell Pressure Analysis</span>}
-                    style={theme.card}
+                    styles={{
+                        root: cardStyles.root,
+                        body: cardStyles.body,
+                    }}
                     headStyle={{ borderBottom: `1px solid ${theme.colors.primary}` }}
                 >
                     <ReactECharts option={getSellPressureOption()} style={{ height: '400px' }} />
@@ -666,7 +678,10 @@ const DeFiSection: React.FC<DeFiSectionProps> = ({
                                 Buy Transactions
                             </span>
                         }
-                        style={theme.card}
+                        styles={{
+                            root: cardStyles.root,
+                            body: cardStyles.body,
+                        }}
                         headStyle={{ borderBottom: `1px solid ${theme.colors.primary}` }}
                     >
                         {buyTransactions.length > 0 ? (
@@ -713,7 +728,10 @@ const DeFiSection: React.FC<DeFiSectionProps> = ({
                                 Sell Transactions
                             </span>
                         }
-                        style={theme.card}
+                        styles={{
+                            root: cardStyles.root,
+                            body: cardStyles.body,
+                        }}
                         headStyle={{ borderBottom: `1px solid ${theme.colors.primary}` }}
                     >
                         {sellTransactions.length > 0 ? (

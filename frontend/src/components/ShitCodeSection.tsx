@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Alert, Table, Spin } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
-import { theme, getBarSeriesStyle, getLineSeriesStyle, getGradientBarData, getValueAxisStyle, formatNumber, formatDecimal, formatSOL, formatSOLNumber, getTooltipOption, getYAxisOption } from '../theme';
+import { theme, getBarSeriesStyle, getLineSeriesStyle, getGradientBarData, getValueAxisStyle, formatNumber, formatDecimal, formatSOL, formatSOLNumber, getTooltipOption, getYAxisOption, cardStyles } from '../theme';
 import { StatisticCard } from './ui';
 import type { SheetData, ShitCodeRecordEntry } from '../services/dataService';
 
@@ -294,7 +294,10 @@ const ShitCodeSection: React.FC<ShitCodeSectionProps> = ({
                     <Col xs={24} lg={12}>
                         <Card
                             title="每日领取次数 vs SOL 收入"
-                            style={theme.card}
+                            styles={{
+                                root: cardStyles.root,
+                                body: cardStyles.body,
+                            }}
                         >
                             <ReactECharts
                                 option={{
@@ -340,7 +343,10 @@ const ShitCodeSection: React.FC<ShitCodeSectionProps> = ({
                     <Col xs={24} lg={12}>
                         <Card
                             title="Top 10 羊毛党 (按领取次数)"
-                            style={theme.card}
+                            styles={{
+                                root: cardStyles.root,
+                                body: cardStyles.body,
+                            }}
                         >
                             <ReactECharts
                                 option={{
@@ -396,7 +402,10 @@ const ShitCodeSection: React.FC<ShitCodeSectionProps> = ({
                             每个地址领取次数分布
                         </span>
                     }
-                    style={theme.card}
+                    styles={{
+                        root: cardStyles.root,
+                        body: cardStyles.body,
+                    }}
                 >
                     {addressDistribution.length > 0 ? (
                         <Table

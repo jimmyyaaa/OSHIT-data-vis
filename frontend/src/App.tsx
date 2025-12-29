@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Layout,
     ConfigProvider,
@@ -11,26 +11,25 @@ import {
 } from 'antd';
 import {
     ReloadOutlined,
-    RobotOutlined,
     LineChartOutlined,
     DollarOutlined,
     CodeOutlined,
     BankOutlined,
     TrophyOutlined,
     SwapOutlined,
+    MenuUnfoldOutlined,
+    MenuFoldOutlined,
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import { dataService, type SheetData } from './services/dataService';
-import StakingSection, { type SectionRef } from './components/StakingSection';
+import StakingSection from './components/StakingSection';
 import TSSection from './components/TSSection';
 import POSSection from './components/POSSection';
 import ShitCodeSection from './components/ShitCodeSection';
 import RevenueSection from './components/RevenueSection';
 import DeFiSection from './components/DeFiSection';
-import AISummarySidebar from './components/AISummarySidebar';
 import EmptyDataPlaceholder from './components/EmptyDataPlaceholder';
 import LoadingData from './components/LoadingData';
-import Splitter from './components/Splitter';
 
 const { Header, Content, Sider } = Layout;
 const { Title } = Typography;
@@ -74,6 +73,7 @@ const App: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<SheetData | null>(null);
     const [selectedSection, setSelectedSection] = useState('STAKING');
+    const [collapsed, setCollapsed] = useState(false);
     // Default to last 7 days (sliding window): from 7 days ago to today
     const computeLast7DaysRange = (): [Dayjs, Dayjs] => {
         const today = dayjs();
@@ -89,24 +89,7 @@ const App: React.FC = () => {
         cacheSize?: number;
     }>({ hasCachedData: false });
 
-    // AI Summary State
-    const [aiModalVisible, setAiModalVisible] = useState(false);
-    const [aiSummary, setAiSummary] = useState('');
-    const [aiLoading, setAiLoading] = useState(false);
-    const [aiError, setAiError] = useState<string | null>(null);
-    const sectionRef = useRef<SectionRef>(null);
 
-    // Split View State
-    const [splitRatio, setSplitRatio] = useState(() => {
-        const saved = localStorage.getItem('splitRatio');
-        return saved ? parseFloat(saved) : 0.7; // 默认左侧面板占70%，右侧占30%
-    });
-
-    // 保存分割比例到本地存储
-    const handleSplitChange = useCallback((ratio: number) => {
-        setSplitRatio(ratio);
-        localStorage.setItem('splitRatio', ratio.toString());
-    }, []);
 
     // 组件挂载时加载数据
     useEffect(() => {
@@ -264,35 +247,7 @@ const App: React.FC = () => {
         setSelectedSection(key);
     };
 
-    const handleAISummary = async () => {
-        if (!sectionRef.current) {
-            message.warning('当前页面暂不支持AI总结');
-            return;
-        }
 
-        setAiModalVisible(true);
-        setAiLoading(true);
-        setAiSummary('');
-        setAiError(null);
-
-        try {
-            const { context, prompt } = sectionRef.current.getSummaryData();
-            const dataContext = JSON.stringify(context);
-            
-            const response = await dataService.getAISummary(dataContext, prompt);
-            
-            if (response.status === 'success') {
-                setAiSummary(response.summary);
-            } else {
-                setAiError(response.message || '分析失败');
-            }
-        } catch (error) {
-            console.error('AI Summary failed:', error);
-            setAiError('无法生成AI总结，请稍后重试。');
-        } finally {
-            setAiLoading(false);
-        }
-    };
 
     // 渲染当前选中的Section组件
     const renderCurrentSection = () => {
@@ -304,7 +259,6 @@ const App: React.FC = () => {
             case 'STAKING':
                 return (
                     <StakingSection
-                        ref={sectionRef}
                         key={`staking-${selectedSection}`}
                         data={data}
                         error={null}
@@ -469,27 +423,22 @@ const App: React.FC = () => {
                         </Title>
                     </div>
 
+                    <RangePicker
+                        value={dateRange}
+                        onChange={handleDateRangeChange}
+                        format="YYYY-MM-DD"
+                        allowClear={false}
+                    />
+
                     {/* 数据状态和刷新按钮 */}
                     <div
                         style={{
+                            position: 'relative',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '16px',
+                            height: '100%',
                         }}
                     >
-                        {cacheInfo.cacheTimestamp && (
-                            <span
-                                style={{
-                                    color: '#80FFFF',
-                                    fontSize: '16px',
-                                    opacity: 1,
-                                    marginLeft: '12px',
-                                }}
-                            >
-                                last refresh: {formatRelativeTime(cacheInfo.cacheTimestamp)}
-                            </span>
-                        )}
-                        
                         <Button
                             icon={<ReloadOutlined />}
                             onClick={handleRefresh}
@@ -504,6 +453,41 @@ const App: React.FC = () => {
                             {loading ? '刷新中...' : '刷新数据'}
                         </Button>
 
+                        {cacheInfo.cacheTimestamp && !loading && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    top: '66.6%',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    whiteSpace: 'nowrap',
+                                    marginTop: '8px',
+                                }}
+                            >
+                                <div
+                                    className="breathing-dot"
+                                    style={{
+                                        width: '6px',
+                                        height: '6px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#00FF41',
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        color: '#80FFFF',
+                                        fontSize: '11px',
+                                        opacity: 1,
+                                        lineHeight: '1',
+                                    }}
+                                >
+                                    {formatRelativeTime(cacheInfo.cacheTimestamp)}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </Header>
 
@@ -515,16 +499,35 @@ const App: React.FC = () => {
                 }}>
                     {/* 左侧Section选择器 */}
                     <Sider
+                        collapsible
+                        collapsed={collapsed}
+                        onCollapse={setCollapsed}
                         style={{
-                            width: 240,
                             height: '100%',
                             background: 'rgba(0, 5, 15, 0.95)',
                             borderRight: '2px solid #00FFFF',
                             backdropFilter: 'blur(10px)',
                             boxShadow: '2px 0 20px rgba(0, 255, 255, 0.3)',
                         }}
+                        trigger={
+                            <div
+                                style={{
+                                    background: 'rgba(0, 5, 15, 0.95)',
+                                    borderRight: '2px solid #00FFFF',
+                                    // borderTop: '1px solid rgba(0, 255, 255, 0.3)',
+                                    height: '48px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#00FFFF',
+                                    fontSize: '16px',
+                                }}
+                            >
+                                {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                            </div>
+                        }
                     >
-                        <div style={{ padding: '20px 0', height: '100%' }}>
+                        <div style={{ padding: '20px 0'}}>
                             <Menu
                                 key={`menu-${selectedSection}`}
                                 mode="inline"
@@ -535,20 +538,22 @@ const App: React.FC = () => {
                                     border: 'none',
                                 }}
                             >
-                                {SECTIONS.map((section) => (
-                                    <Menu.Item
-                                        key={section.key}
-                                        icon={section.icon}
-                                        style={{
-                                            marginBottom: '8px',
-                                            borderRadius: '8px',
-                                            fontWeight: 'bold',
-                                            fontSize: '14px',
-                                        }}
-                                    >
-                                        {section.label}
-                                    </Menu.Item>
-                                ))}
+                                <Menu.ItemGroup key="dashboard" title="DASHBOARD">
+                                    {SECTIONS.map((section) => (
+                                        <Menu.Item
+                                            key={section.key}
+                                            icon={section.icon}
+                                            style={{
+                                                marginBottom: '8px',
+                                                borderRadius: '8px',
+                                                fontWeight: 'bold',
+                                                fontSize: '14px',
+                                            }}
+                                        >
+                                            {section.label}
+                                        </Menu.Item>
+                                    ))}
+                                </Menu.ItemGroup>
                             </Menu>
                         </div>
                     </Sider>
@@ -563,62 +568,23 @@ const App: React.FC = () => {
                         display: 'flex',
                         flexDirection: 'column'
                     }}>
-                        {/* 右侧顶部导航栏 */}
-                        <Header
-                            style={{
-                                background: 'rgba(0, 5, 15, 0.95)',
-                                padding: '12px 24px',
-                                borderBottom: '2px solid #00FFFF',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                backdropFilter: 'blur(10px)',
-                                boxShadow: '0 0 15px rgba(0, 255, 255, 0.2)',
-                                height: 'auto',
-                                lineHeight: 'normal',
-                            }}
-                        >
 
-                            <RangePicker
-                                value={dateRange}
-                                onChange={handleDateRangeChange}
-                                format="YYYY-MM-DD"
-                                allowClear={false}
-                                style={{ 
-                                    marginRight: '16px',
-                                }}
-                            />
 
-                            <Button
-                                icon={<RobotOutlined />}
-                                onClick={handleAISummary}
-                                style={{
-                                    opacity: 0.7,
-                                    fontSize: '14px',
-                                    fontWeight: 'bold',
-                                }}
-                            >
-                                AI总结
-                            </Button>
-                        </Header>
-
-                        {/* 主要内容区域 - 分割视图 */}
+                        {/* 主要内容区域 */}
                         <Content
                             style={{
                                 margin: 0,
                                 padding: 0,
                                 display: 'flex',
-                                flexDirection: 'row',
+                                flexDirection: 'column',
                                 overflow: 'hidden',
                             }}
                         >
-                            {/* 左侧面板 - 数据展示 */}
                             <div
                                 style={{
-                                    width: aiModalVisible ? `${splitRatio * 100}%` : '100%',
+                                    flex: 1,
                                     padding: '0',
-                                    overflowY: 'auto',
-                                    transition: 'width 0.3s ease-in-out',
+                                    overflowY: 'hidden',
                                 }}
                             >
                                 {loading ? (
@@ -627,33 +593,6 @@ const App: React.FC = () => {
                                     renderCurrentSection()
                                 )}
                             </div>
-
-                            {/* 分割线 - 只在AI分析打开时显示 */}
-                            {aiModalVisible && (
-                                <Splitter
-                                    direction="vertical"
-                                    onSplit={handleSplitChange}
-                                    minRatio={0.3}
-                                    maxRatio={0.8}
-                                />
-                            )}
-
-                            {/* 右侧面板 - AI分析 */}
-                            {aiModalVisible && (
-                                <div
-                                    style={{
-                                        width: `${(1 - splitRatio) * 100}%`,
-                                        overflow: 'hidden',
-                                    }}
-                                >
-                                    <AISummarySidebar
-                                        onClose={() => setAiModalVisible(false)}
-                                        summary={aiSummary}
-                                        loading={aiLoading}
-                                        error={aiError}
-                                    />
-                                </div>
-                            )}
                         </Content>
 
                         {/* <Footer

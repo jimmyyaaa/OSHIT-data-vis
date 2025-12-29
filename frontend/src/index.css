@@ -86,3 +86,25 @@ code {
 
     transition: all 0.3s ease !important;
 }
+
+@keyframes breathing-dot {
+    0% {
+        opacity: 1;
+        box-shadow: 0 0 8px #00FF41;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.4;
+        box-shadow: 0 0 2px #00FF41;
+        transform: scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 8px #00FF41;
+        transform: scale(1);
+    }
+}
+
+.breathing-dot {
+    animation: breathing-dot 2s infinite ease-in-out;
+}

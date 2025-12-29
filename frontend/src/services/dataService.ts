@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 // Define types for our data structure
 export interface StakingRecordEntry {
     'Timestamp(UTC)': string;
@@ -311,33 +309,33 @@ class DataService {
 
             // 从API获取新数据
             console.log('Fetching fresh data from API...');
-            const response = await axios.get<APIResponse>(
+            const response = await fetch(
                 `${this.baseURL}/getDataFromSheets`,
                 {
-                    timeout: 300000, // 30 seconds timeout
+                    signal: AbortSignal.timeout(300000), // 30 seconds timeout
                 }
             );
 
-            if (response.data.status === 'success' && response.data.data) {
-                const freshData = response.data.data;
-
-                // 缓存数据到IndexedDB
-                if (this.isInitialized) {
-                    try {
-                        await this.dbManager.setData(freshData);
-                        console.log('Data cached to IndexedDB successfully');
-                    } catch (error) {
-                        console.error('Failed to cache data:', error);
-                        // 继续执行，即使缓存失败
-                    }
-                }
-
-                return freshData;
-            } else {
-                throw new Error(
-                    response.data.message || 'Failed to fetch data'
-                );
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to fetch data');
             }
+
+            const responseData = await response.json();
+            const freshData = responseData.data;
+
+            // 缓存数据到IndexedDB
+            if (this.isInitialized) {
+                try {
+                    await this.dbManager.setData(freshData);
+                    console.log('Data cached to IndexedDB successfully');
+                } catch (error) {
+                    console.error('Failed to cache data:', error);
+                    // 继续执行，即使缓存失败
+                }
+            }
+
+            return freshData;
         } catch (error) {
             console.error('Error fetching data:', error);
 
@@ -350,17 +348,12 @@ class DataService {
                 }
             }
 
-            // 处理不同类型的错误
-            if (axios.isAxiosError(error)) {
-                if (error.code === 'ECONNREFUSED') {
-                    throw new Error(
-                        '无法连接到后端服务，请确保后端服务正在运行'
-                    );
-                } else if (error.code === 'ETIMEDOUT') {
+            // 处理错误
+            if (error instanceof Error) {
+                if (error.name === 'AbortError') {
                     throw new Error('请求超时，请检查网络连接');
-                } else {
-                    throw new Error(`网络错误: ${error.message}`);
                 }
+                throw new Error(`网络错误: ${error.message}`);
             }
 
             throw error;
@@ -451,7 +444,7 @@ class DataService {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to generate AI summary');
+                throw new Error(errorData.detail || 'Failed to generate AI summary');
             }
 
             return await response.json();
