@@ -201,7 +201,6 @@ class DataCache:
         """
         try:
             sheet_names = [
-                "TS_Log",
                 "POS_Log",
                 "Staking_Log",
                 "Staking_Amount_Log",

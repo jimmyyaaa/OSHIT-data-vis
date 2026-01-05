@@ -107,6 +107,7 @@ async def calculate_ts(request: DateRangeRequest):
     try:
         from data_cache import data_cache
         from calculators.ts import calculate_ts as ts_calc
+        from utils.db_loader import load_ts_log_from_db
         
         if not data_cache.is_cached:
             raise HTTPException(
@@ -114,16 +115,9 @@ async def calculate_ts(request: DateRangeRequest):
                 detail="数据未缓存，请先调用 /loadData"
             )
         
-        # 获取数据
-        df_ts_log = data_cache.data.get('TS_Log')
+        # 获取其他辅助数据
         df_ts_discord = data_cache.data.get('TS_Discord')
         df_shit_price = data_cache.data.get('SHIT_Price_Log')
-        
-        if df_ts_log is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="缺少 TS_Log"
-            )
         
         # 日期范围计算（UTC+8 08:00）
         timestamp_col = 'Timestamp(UTC+8)'
@@ -134,9 +128,18 @@ async def calculate_ts(request: DateRangeRequest):
         prev_start = current_start - pd.Timedelta(days=period_length)
         prev_end = current_start
         
-        # 分割TS_Log数据
-        df_log_current = df_ts_log[(df_ts_log[timestamp_col] >= current_start) & (df_ts_log[timestamp_col] < current_end)].copy()
-        df_log_prev = df_ts_log[(df_ts_log[timestamp_col] >= prev_start) & (df_ts_log[timestamp_col] < current_start)].copy()
+        # 从数据库按需加载 TS_Log 数据 (涵盖当前和前一周期)
+        logger.info(f"正在从数据库加载 TS_Log: {prev_start} 到 {current_end}")
+        df_ts_log_all = load_ts_log_from_db(prev_start, current_end)
+        
+        if df_ts_log_all.empty:
+            logger.warning("未找到 TS_Log 数据")
+            df_log_current = pd.DataFrame()
+            df_log_prev = pd.DataFrame()
+        else:
+            # 分割TS_Log数据
+            df_log_current = df_ts_log_all[(df_ts_log_all[timestamp_col] >= current_start) & (df_ts_log_all[timestamp_col] < current_end)].copy()
+            df_log_prev = df_ts_log_all[(df_ts_log_all[timestamp_col] >= prev_start) & (df_ts_log_all[timestamp_col] < current_start)].copy()
         
         # 分割TS_Discord数据（如果存在）
         df_discord_current = pd.DataFrame()
@@ -332,6 +335,7 @@ async def calculate_revenue(request: DateRangeRequest):
     try:
         from data_cache import data_cache
         from calculators.revenue import calculate_revenue as revenue_calc
+        from utils.db_loader import load_ts_log_from_db
         
         if not data_cache.is_cached:
             raise HTTPException(
@@ -339,28 +343,31 @@ async def calculate_revenue(request: DateRangeRequest):
                 detail="数据未缓存，请先调用 /loadData"
             )
         
-        # 获取所有数据源
-        df_ts = data_cache.data.get('TS_Log')
+        # 获取其他数据源
         df_pos = data_cache.data.get('POS_Log')
         df_staking = data_cache.data.get('Staking_Log')
         df_shitcode = data_cache.data.get('ShitCode_Log')
         
-        if df_ts is None or df_pos is None or df_staking is None or df_shitcode is None:
+        if df_pos is None or df_staking is None or df_shitcode is None:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="缺少必要的数据源"
+                detail="缺少必要的数据源 (POS, Staking 或 ShitCode)"
             )
         
         timestamp_col = 'Timestamp(UTC+8)'
         
+        # 计算时间范围
+        ts_period = (pd.to_datetime(request.end_date) - pd.to_datetime(request.start_date)).days + 1
+        
         # TS（8am边界）
         ts_start = pd.to_datetime(request.start_date).replace(hour=8, minute=0, second=0, microsecond=0)
         ts_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-        ts_period = (pd.to_datetime(request.end_date) - pd.to_datetime(request.start_date)).days + 1
         ts_prev_start = ts_start - pd.Timedelta(days=ts_period)
         
-        df_ts_current = df_ts[(df_ts[timestamp_col] >= ts_start) & (df_ts[timestamp_col] < ts_end)].copy()
-        df_ts_prev = df_ts[(df_ts[timestamp_col] >= ts_prev_start) & (df_ts[timestamp_col] < ts_start)].copy()
+        # 从数据库加载 TS 数据
+        df_ts_all = load_ts_log_from_db(ts_prev_start, ts_end)
+        df_ts_current = df_ts_all[(df_ts_all[timestamp_col] >= ts_start) & (df_ts_all[timestamp_col] < ts_end)].copy()
+        df_ts_prev = df_ts_all[(df_ts_all[timestamp_col] >= ts_prev_start) & (df_ts_all[timestamp_col] < ts_start)].copy()
         
         # POS（12pm边界）
         pos_start = pd.to_datetime(request.start_date).replace(hour=12, minute=0, second=0, microsecond=0)

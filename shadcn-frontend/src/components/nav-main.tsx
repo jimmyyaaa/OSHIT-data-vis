@@ -4,84 +4,89 @@ import { ChevronRight, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import {
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
 
+import { useLocale } from '@/contexts/LocaleContext'
+
 export function NavMain({
-  items,
+    items,
 }: {
-  items: {
-    title: string
-    url: string
-    icon?: LucideIcon
-    isActive?: boolean
-    items?: {
-      title: string
-      url: string
+    items: {
+        title: string
+        url: string
+        icon?: LucideIcon
+        isActive?: boolean
+        items?: {
+            title: string
+            url: string
+        }[]
     }[]
-  }[]
 }) {
-  return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
-      <SidebarMenu>
-        {items.map((item) => (
-          !item.items || item.items.length === 0 ? (
-            // 没有子菜单的项目（Dashboard）
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild tooltip={item.title}>
-                <Link to={item.url}>
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ) : (
-            // 有子菜单的项目（Statistics）
-            <Collapsible
-              key={item.title}
-              asChild
-              defaultOpen={item.isActive}
-              className="group/collapsible"
-            >
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={item.title}>
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {item.items?.map((subItem) => (
-                      <SidebarMenuSubItem key={subItem.title}>
-                        <SidebarMenuSubButton asChild>
-                          <Link to={subItem.url}>
-                            <span>{subItem.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
-          )
-        ))}
-      </SidebarMenu>
-    </SidebarGroup>
-  )
+    const { getTranslations } = useLocale()
+    const t = getTranslations()
+
+    return (
+        <SidebarGroup>
+            <SidebarGroupLabel>{t.sidebar.platform}</SidebarGroupLabel>
+            <SidebarMenu>
+                {items.map((item) => (
+                    !item.items || item.items.length === 0 ? (
+                        // 没有子菜单的项目（Dashboard）
+                        <SidebarMenuItem key={item.title}>
+                            <SidebarMenuButton asChild tooltip={item.title}>
+                                <Link to={item.url}>
+                                    {item.icon && <item.icon />}
+                                    <span>{item.title}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    ) : (
+                        // 有子菜单的项目（Statistics）
+                        <Collapsible
+                            key={item.title}
+                            asChild
+                            defaultOpen={item.isActive}
+                            className="group/collapsible"
+                        >
+                            <SidebarMenuItem>
+                                <CollapsibleTrigger asChild>
+                                    <SidebarMenuButton tooltip={item.title}>
+                                        {item.icon && <item.icon />}
+                                        <span>{item.title}</span>
+                                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                    </SidebarMenuButton>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                    <SidebarMenuSub>
+                                        {item.items?.map((subItem) => (
+                                            <SidebarMenuSubItem key={subItem.title}>
+                                                <SidebarMenuSubButton asChild>
+                                                    <Link to={subItem.url}>
+                                                        <span>{subItem.title}</span>
+                                                    </Link>
+                                                </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
+                                        ))}
+                                    </SidebarMenuSub>
+                                </CollapsibleContent>
+                            </SidebarMenuItem>
+                        </Collapsible>
+                    )
+                ))}
+            </SidebarMenu>
+        </SidebarGroup>
+    )
 }

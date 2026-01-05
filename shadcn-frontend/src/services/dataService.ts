@@ -6,18 +6,18 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5005";
 
 interface LoadDataResponse {
-  timestamp: string;
-  timestamp_ms: number;
-  cache_size_mb: number;
+    timestamp: string;
+    timestamp_ms: number;
+    cache_size_mb: number;
 }
 
 interface CalculateResponse {
-  metrics: Record<string, any>;
-  dailyData: Array<Record<string, any>>;
-  topXxx?: Array<Record<string, any>>;
-  composition?: Array<Record<string, any>>;
-  heatmapData?: Record<string, any>;
-  [key: string]: any;
+    metrics: Record<string, any>;
+    dailyData: Array<Record<string, any>>;
+    topXxx?: Array<Record<string, any>>;
+    composition?: Array<Record<string, any>>;
+    heatmapData?: Record<string, any>;
+    [key: string]: any;
 }
 
 /**
@@ -25,92 +25,92 @@ interface CalculateResponse {
  * @param forceRefresh 是否强制刷新（跳过缓存）
  */
 export async function loadData(forceRefresh: boolean = false): Promise<LoadDataResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/loadData`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ force_refresh: forceRefresh }),
-    });
+    try {
+        const response = await fetch(`${API_BASE_URL}/loadData`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ force_refresh: forceRefresh }),
+        });
 
-    if (!response.ok) {
-      if (response.status === 412) {
-        throw new Error("412: 缓存需要初始化，请先调用 loadData()");
-      }
-      if (response.status === 500) {
-        throw new Error("500: 服务器错误");
-      }
-      throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+            if (response.status === 412) {
+                throw new Error("412: 缓存需要初始化，请先调用 loadData()");
+            }
+            if (response.status === 500) {
+                throw new Error("500: 服务器错误");
+            }
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data: LoadDataResponse = await response.json();
+        console.log("✅ loadData 成功:", data);
+        return data;
+    } catch (error) {
+        console.error("❌ loadData 失败:", error);
+        throw error;
     }
-
-    const data: LoadDataResponse = await response.json();
-    console.log("✅ loadData 成功:", data);
-    return data;
-  } catch (error) {
-    console.error("❌ loadData 失败:", error);
-    throw error;
-  }
 }
 
 /**
  * 获取 Staking 数据
  */
 export async function fetchStakingData(
-  startDate: string,
-  endDate: string
+    startDate: string,
+    endDate: string
 ): Promise<CalculateResponse> {
-  return calculateRequest("staking", startDate, endDate);
+    return calculateRequest("staking", startDate, endDate);
 }
 
 /**
  * 获取 TS Trading 数据
  */
 export async function fetchTSData(
-  startDate: string,
-  endDate: string
+    startDate: string,
+    endDate: string
 ): Promise<CalculateResponse> {
-  return calculateRequest("ts", startDate, endDate);
+    return calculateRequest("ts", startDate, endDate);
 }
 
 /**
  * 获取 POS 数据
  */
 export async function fetchPOSData(
-  startDate: string,
-  endDate: string
+    startDate: string,
+    endDate: string
 ): Promise<CalculateResponse> {
-  return calculateRequest("pos", startDate, endDate);
+    return calculateRequest("pos", startDate, endDate);
 }
 
 /**
  * 获取 ShitCode 数据
  */
 export async function fetchShitcodeData(
-  startDate: string,
-  endDate: string
+    startDate: string,
+    endDate: string
 ): Promise<CalculateResponse> {
-  return calculateRequest("shitcode", startDate, endDate);
+    return calculateRequest("shitcode", startDate, endDate);
 }
 
 /**
  * 获取 Revenue 数据
  */
 export async function fetchRevenueData(
-  startDate: string,
-  endDate: string
+    startDate: string,
+    endDate: string
 ): Promise<CalculateResponse> {
-  return calculateRequest("revenue", startDate, endDate);
+    return calculateRequest("revenue", startDate, endDate);
 }
 
 /**
  * 获取 DeFi 数据
  */
 export async function fetchDefiData(
-  startDate: string,
-  endDate: string
+    startDate: string,
+    endDate: string
 ): Promise<CalculateResponse> {
-  return calculateRequest("defi", startDate, endDate);
+    return calculateRequest("defi", startDate, endDate);
 }
 
 /**
@@ -120,60 +120,67 @@ export async function fetchDefiData(
  * @param endDate 结束日期 (YYYY-MM-DD)
  */
 async function calculateRequest(
-  type: string,
-  startDate: string,
-  endDate: string
+    type: string,
+    startDate: string,
+    endDate: string
 ): Promise<CalculateResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/calculate/${type}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        start_date: startDate,
-        end_date: endDate,
-      }),
-    });
+    try {
+        const response = await fetch(`${API_BASE_URL}/calculate/${type}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate,
+            }),
+        });
 
-    if (!response.ok) {
-      if (response.status === 412) {
-        throw new Error("412: 需要先调用 loadData()");
-      }
-      if (response.status === 500) {
-        throw new Error("500: 服务器错误");
-      }
-      throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+            if (response.status === 412) {
+                throw new Error("412: 需要先调用 loadData()");
+            }
+            if (response.status === 500) {
+                throw new Error("500: 服务器错误");
+            }
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data: CalculateResponse = await response.json();
+        console.log(`✅ calculate/${type} 成功:`, data);
+        return data;
+    } catch (error) {
+        console.error(`❌ calculate/${type} 失败:`, error);
+        throw error;
     }
-
-    const data: CalculateResponse = await response.json();
-    console.log(`✅ calculate/${type} 成功:`, data);
-    return data;
-  } catch (error) {
-    console.error(`❌ calculate/${type} 失败:`, error);
-    throw error;
-  }
 }
 
 /**
- * 日期格式化辅助函数
+ * 日期格式化辅助函数 - 使用本地时间避免时区偏移
  * @param date Date 对象
  * @returns YYYY-MM-DD 格式的字符串
  */
 export function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
 }
 
 /**
- * 获取默认日期范围（过去7天）
+ * 获取默认日期范围（过去7天）- 使用本地时间
  * @returns { startDate, endDate }
  */
 export function getDefaultDateRange(): { startDate: string; endDate: string } {
-  const today = new Date();
-  const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const today = new Date();
+    // 设置为今天的 00:00:00
+    today.setHours(0, 0, 0, 0);
 
-  return {
-    startDate: formatDate(sevenDaysAgo),
-    endDate: formatDate(today),
-  };
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+
+    return {
+        startDate: formatDate(sevenDaysAgo),
+        endDate: formatDate(today),
+    };
 }

@@ -31,12 +31,12 @@ def load_sheet_data(sheet_names):
     df_sh = gc.open_by_key(DEFI_SHEET_ID)
 
     result = {}
-    for i, sheet_name in enumerate(sheet_names):
-        # 前7个表从operational sheet加载，最后一个表从defi sheet加载
-        if i < 7:
-            ws = op_sh.worksheet(sheet_name)
-        else:
+    for sheet_name in sheet_names:
+        # Liq_Pool_Activity 从 defi sheet 加载，其他从 operational sheet 加载
+        if sheet_name == "Liq_Pool_Activity":
             ws = df_sh.worksheet(sheet_name)
+        else:
+            ws = op_sh.worksheet(sheet_name)
 
         records = ws.get_all_records()
         df = pd.DataFrame(records)
@@ -45,6 +45,6 @@ def load_sheet_data(sheet_names):
             df['Timestamp(UTC+8)'] = pd.to_datetime(df['Timestamp(UTC+8)'])
 
         result[sheet_name] = df
-        logger.info(f"Loaded sheet: {sheet_name} from {'operational' if i < 7 else 'defi'} sheet")
+        logger.info(f"Loaded sheet: {sheet_name} from {'defi' if sheet_name == 'Liq_Pool_Activity' else 'operational'} sheet")
 
     return result
