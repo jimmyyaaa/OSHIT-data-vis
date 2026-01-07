@@ -168,19 +168,19 @@ export function formatDate(date: Date): string {
 }
 
 /**
- * 获取默认日期范围（过去7天）- 使用本地时间
+ * 获取默认日期范围（昨天当天）- 使用本地时间
  * @returns { startDate, endDate }
  */
 export function getDefaultDateRange(): { startDate: string; endDate: string } {
     const today = new Date();
-    // 设置为今天的 00:00:00
     today.setHours(0, 0, 0, 0);
 
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 7);
+    // 默认起始和结束日期都设为昨天
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
 
     return {
-        startDate: formatDate(sevenDaysAgo),
-        endDate: formatDate(today),
+        startDate: formatDate(yesterday),
+        endDate: formatDate(yesterday),
     };
 }

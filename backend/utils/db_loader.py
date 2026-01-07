@@ -1,70 +1,46 @@
 import os
 import pandas as pd
-from sqlalchemy import create_engine, text
+import requests
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-def get_db_engine():
-    """创建并返回 SQLAlchemy 数据库引擎"""
-    host = os.getenv("DB_HOST")
-    port = os.getenv("DB_PORT", "3306")
-    user = os.getenv("DB_USER")
-    password = os.getenv("DB_PASS")
-    database = os.getenv("DB_NAME")
-    
-    if not all([host, user, password, database]):
-        logger.error("数据库配置缺失，请检查 .env 文件")
-        return None
-        
-    # 构造连接字符串
-    connection_string = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
-    
-    try:
-        engine = create_engine(connection_string)
-        return engine
-    except Exception as e:
-        logger.error(f"创建数据库引擎失败: {e}")
-        return None
-
-def load_ts_log_from_db(start_dt=None, end_dt=None):
+def load_ts_log_from_db(start_dt: Optional[pd.Timestamp] = None, end_dt: Optional[pd.Timestamp] = None):
     """
-    从数据库加载 TS_Log 数据并进行字段映射和时区转换
-    如果提供了 start_dt 和 end_dt (UTC+8)，则进行时间范围过滤
+    从 Lambda 接口(fetchTSdb)加载 TS_Log 数据并进行字段映射和时区转换。
+    如果提供了 start_dt 和 end_dt (UTC+8)，则将其转换为 UTC ISO 格式进行过滤。
     """
-    engine = get_db_engine()
-    if engine is None:
+    lambda_url = os.getenv("TS_LAMBDA_URL")
+    if not lambda_url:
+        logger.error("环境变量 TS_LAMBDA_URL 缺失，请检查 .env 文件")
         return pd.DataFrame()
         
-    # SQL 查询：基础查询
-    query = """
-    SELECT 
-        block_time_dt,
-        transfer_index,
-        to_user,
-        amount,
-        SolSentToTreasury
-    FROM take_a_SHIT
-    """
-    
     params = {}
     if start_dt is not None and end_dt is not None:
-        # 将 UTC+8 时间转换为 UTC+0 以匹配数据库
-        db_start = start_dt - pd.Timedelta(hours=8)
-        db_end = end_dt - pd.Timedelta(hours=8)
-        query += " WHERE block_time_dt >= :start AND block_time_dt < :end"
-        params = {"start": db_start, "end": db_end}
+        # 将 UTC+8 时间转换为 UTC+0 ISO 格式 (例如: 2026-01-05T23:00:00Z)
+        utc_start = start_dt - pd.Timedelta(hours=8)
+        utc_end = end_dt - pd.Timedelta(hours=8)
+        
+        params = {
+            "starttime": utc_start.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "endtime": utc_end.strftime('%Y-%m-%dT%H:%M:%SZ')
+        }
     
     try:
-        # 使用 SQLAlchemy 的 text() 包装查询，并传参防止注入
-        df = pd.read_sql(text(query), engine, params=params)
+        # 使用分页辅助函数获取所有数据
+        rows = _fetch_all_paged_data(lambda_url, params)
         
-        if df.empty:
-            logger.warning(f"数据库中未找到数据 (范围: {start_dt} 到 {end_dt})")
-            return df
+        if not rows:
+            logger.warning(f"Lambda 返回数据为空 (范围: {start_dt} 到 {end_dt})")
+            return pd.DataFrame()
             
-        # 1. 时区转换: block_time_dt (UTC+0) -> Timestamp(UTC+8)
-        df['Timestamp(UTC+8)'] = pd.to_datetime(df['block_time_dt']) + pd.Timedelta(hours=8)
+        # 构造 DataFrame
+        df = pd.DataFrame(rows)
+        
+        # 1. 时区转换: block_time_dt (UTC+0 ISO) -> Timestamp(UTC+8)
+        # 修正：先转为带时区的时间，转换时区后，最后去掉时区信息 (tz_localize(None)) 以兼容 tz-naive 比较
+        df['Timestamp(UTC+8)'] = pd.to_datetime(df['block_time_dt']).dt.tz_convert('Asia/Shanghai').dt.tz_localize(None)
         
         # 2. 字段映射
         df = df.rename(columns={
@@ -74,7 +50,7 @@ def load_ts_log_from_db(start_dt=None, end_dt=None):
             'SolSentToTreasury': 'SOL_Received'
         })
         
-        # 3. 类型转换 (Decimal -> float)
+        # 3. 类型转换 (String/Decimal -> float)
         df['SHIT Sent'] = df['SHIT Sent'].astype(float)
         df['SOL_Received'] = df['SOL_Received'].astype(float)
         
@@ -85,9 +61,62 @@ def load_ts_log_from_db(start_dt=None, end_dt=None):
         df.loc[df['SHIT Sent'].isin([50.0, 150.0]), 'TS_Category'] = 1
         df.loc[df['SHIT Sent'].isin([25.0, 75.0]), 'TS_Category'] = 2
         
-        logger.info(f"从数据库成功加载了 {len(df)} 条 TS_Log 数据")
+        logger.info(f"从 Lambda 成功加载了 {len(df)} 条 TS_Log 数据")
         return df
         
     except Exception as e:
-        logger.error(f"从数据库加载数据失败: {e}")
+        logger.error(f"从 Lambda 加载数据失败: {e}")
         return pd.DataFrame()
+
+def _fetch_all_paged_data(url: str, base_params: dict) -> list:
+    """
+    使用 Cursor 分页获取所有数据的辅助函数
+    """
+    all_rows = []
+    limit = 1500
+    cursor_dt = None
+    cursor_id = None
+    max_retries = 3
+    
+    while True:
+        # 构造 POST Payload
+        payload = base_params.copy()
+        payload.update({"limit": limit})
+        
+        if cursor_dt and cursor_id is not None:
+            payload.update({
+                "cursorDt": cursor_dt,
+                "cursorId": cursor_id
+            })
+        
+        success = False
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"正在请求 Cursor 数据: cursorDt={cursor_dt}, cursorId={cursor_id} (尝试 {attempt+1}/{max_retries})")
+                # 必须使用 POST 请求和 JSON Body
+                response = requests.post(url, json=payload, timeout=60)
+                response.raise_for_status()
+                
+                data = response.json()
+                rows = data.get('rows', [])
+                all_rows.extend(rows)
+                
+                logger.info(f"已获取 {len(all_rows)} 条数据 (本次采集 {len(rows)} 条)")
+                
+                # 检查是否有下一个游标
+                next_cursor = data.get('nextCursor')
+                if not next_cursor:
+                    return all_rows # 抓取完毕
+                
+                cursor_dt = next_cursor.get('cursorDt')
+                cursor_id = next_cursor.get('cursorId')
+                
+                success = True
+                break # 跳出重试循环
+                
+            except Exception as e:
+                logger.warning(f"分页请求失败: {e}")
+                if attempt == max_retries - 1:
+                    raise e
+    
+    return all_rows
