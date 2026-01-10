@@ -27,7 +27,7 @@ header() { echo -e "${WHITE}${BOLD}$1${NC}"; }
 
 # Configuration
 SERVER_USER="admin"
-SERVER_HOST="13.212.7.223"
+SERVER_HOST="52.76.27.134"
 SERVER_KEY="/Users/fupenglin/Desktop/Oshit/ServerKey/aws-testnet-key/aws-quickpea.pem"
 SERVER_BASE_PATH="/data/dist/oshit"
 SERVER_PROJECT_PATH="/data/dist/oshit/oshit-data-vis"
@@ -36,6 +36,8 @@ SERVER_CREDENTIALS_PATH="/data/dist/oshit/oshit-data-vis/credentials"
 LOCAL_BACKEND_PATH="/Users/fupenglin/Desktop/Oshit/Official_Job/OSHIT_Data_Vis/backend"
 CREDENTIALS_LOCAL="/Users/fupenglin/Desktop/Oshit/Official_Job/OSHIT_Data_Vis/credentials/oshit-data-visualization-dd0ed1145527.json"
 CREDENTIALS_REMOTE="/data/dist/oshit/oshit-data-vis/credentials/oshit-data-visualization.json"
+PEM_LOCAL="/Users/fupenglin/Desktop/Oshit/Official_Job/OSHIT_Data_Vis/credentials/global-bundle.pem"
+PEM_REMOTE="/data/dist/oshit/oshit-data-vis/credentials/global-bundle.pem"
 
 header "🚀 Starting OSHIT Backend Upload..."
 header "================================================"
@@ -56,6 +58,11 @@ fi
 if [ ! -f "$CREDENTIALS_LOCAL" ]; then
     error "Google credentials file not found at $CREDENTIALS_LOCAL"
     exit 1
+fi
+
+# Check if PEM file exists
+if [ ! -f "$PEM_LOCAL" ]; then
+    warning "RDS SSL CA file not found at $PEM_LOCAL. SSL connections may fail."
 fi
 
 info "Local backend path: $LOCAL_BACKEND_PATH"
@@ -96,12 +103,19 @@ ssh -i "$SERVER_KEY" "$SERVER_USER@$SERVER_HOST" "
 scp -i "$SERVER_KEY" "$CREDENTIALS_LOCAL" "$SERVER_USER@$SERVER_HOST:$CREDENTIALS_REMOTE"
 success "Credentials uploaded"
 
+# Upload PEM file if it exists
+if [ -f "$PEM_LOCAL" ]; then
+    scp -i "$SERVER_KEY" "$PEM_LOCAL" "$SERVER_USER@$SERVER_HOST:$PEM_REMOTE"
+    success "RDS SSL PEM uploaded"
+fi
+
 # Step 3: Set up permissions
 echo ""
 step "3️⃣  Setting up permissions..."
 ssh -i "$SERVER_KEY" "$SERVER_USER@$SERVER_HOST" "
     # Set proper permissions for credentials (read-only for owner)
     chmod 400 $SERVER_CREDENTIALS_PATH/*.json 2>/dev/null || true
+    chmod 400 $SERVER_CREDENTIALS_PATH/*.pem 2>/dev/null || true
     
     echo 'Permissions set'
 "
