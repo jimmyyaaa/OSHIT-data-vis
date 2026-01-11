@@ -147,10 +147,10 @@ async function calculateRequest(
         }
 
         const data: CalculateResponse = await response.json();
-        console.log(`✅ calculate/${type} 成功:`, data);
+        // console.log(`✅ calculate/${type} 成功:`, data);
         return data;
     } catch (error) {
-        console.error(`❌ calculate/${type} 失败:`, error);
+        // console.error(`❌ calculate/${type} 失败:`, error);
         throw error;
     }
 }

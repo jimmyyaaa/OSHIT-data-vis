@@ -20,7 +20,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
     }, []);
 
-    const login = (token: string) => {
+    const login = (_token: string) => {
         // 这里未来可以存储真正的 JWT
         localStorage.setItem('isLoggedIn', 'true');
         setIsAuthenticated(true);
