@@ -148,13 +148,10 @@ export const enTranslations = {
     },
     login: {
         title: 'Sign In to OSHIT',
-        subtitle: 'Enter your credentials to access the dashboard',
         username: 'Username',
         password: 'Password',
         signIn: 'Sign In',
         rememberMe: 'Remember me',
-        forgotPassword: 'Forgot password?',
-        backToHome: 'Back to home',
         logout: 'Log Out',
     },
 };

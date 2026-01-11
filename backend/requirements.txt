@@ -10,3 +10,9 @@ python-dotenv==1.2.1
 requests==2.31.0
 sqlalchemy==2.0.23
 pymysql==1.1.0
+
+# Security and Authentication
+passlib[bcrypt]==1.7.4
+bcrypt==3.1.7
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.9

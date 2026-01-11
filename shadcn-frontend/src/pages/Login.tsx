@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Switch } from '@/components/ui/switch';
+import { loginApi } from '@/services/dataService';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -21,22 +22,28 @@ export default function LoginPage() {
 
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        setError(null);
 
-        // 模拟登录逻辑
-        setTimeout(() => {
-            login("fake-token");
-            setIsLoading(false);
+        try {
+            const response = await loginApi(username, password);
+            login(response.access_token, rememberMe);
 
             // 如果有之前尝试访问的路径，登录后跳回去
             const from = (location.state as any)?.from?.pathname || '/dashboard';
             navigate(from, { replace: true });
-        }, 1000);
+        } catch (err: any) {
+            setError(err.message || '登录失败，请检查用户名和密码');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -56,7 +63,7 @@ export default function LoginPage() {
             <Card className="w-full max-w-md shadow-2xl border-primary/10 backdrop-blur-sm bg-card/95">
                 <CardHeader className="space-y-4 text-center">
                     <div className="flex justify-center mb-2">
-                        <div className="p-3 bg-primary/10 rounded-2xl shadow-inner border border-primary/20">
+                        <div className="p-3 bg-primary/10 rounded-2xl">
                             <img
                                 src="/OSHIT_LOGO_noText.png"
                                 alt="OSHIT"
@@ -68,13 +75,15 @@ export default function LoginPage() {
                         <CardTitle className="text-2xl font-bold tracking-tight">
                             {t.login.title}
                         </CardTitle>
-                        <CardDescription className="text-muted-foreground">
-                            {t.login.subtitle}
-                        </CardDescription>
                     </div>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleLogin} className="space-y-4">
+                        {error && (
+                            <div className="p-3 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg animate-in fade-in zoom-in duration-300">
+                                {error}
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <label
                                 htmlFor="username"
@@ -87,7 +96,7 @@ export default function LoginPage() {
                                 <Input
                                     id="username"
                                     type="text"
-                                    placeholder="admin"
+                                    placeholder="xxx"
                                     className="pl-10"
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
@@ -97,26 +106,19 @@ export default function LoginPage() {
                         </div>
 
                         <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <label
-                                    htmlFor="password"
-                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                    {t.login.password}
-                                </label>
-                                <button
-                                    type="button"
-                                    className="text-xs text-primary hover:underline font-medium"
-                                >
-                                    {t.login.forgotPassword}
-                                </button>
-                            </div>
+                            <label
+                                htmlFor="password"
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                                {t.login.password}
+                            </label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     id="password"
                                     type={showPassword ? 'text' : 'password'}
                                     className="pl-10 pr-10"
+                                    placeholder="***"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
@@ -136,7 +138,11 @@ export default function LoginPage() {
                         </div>
 
                         <div className="flex items-center space-x-2 pb-2">
-                            <Switch id="remember" />
+                            <Switch
+                                id="remember"
+                                checked={rememberMe}
+                                onCheckedChange={setRememberMe}
+                            />
                             <label
                                 htmlFor="remember"
                                 className="text-sm text-muted-foreground cursor-pointer"
@@ -175,14 +181,6 @@ export default function LoginPage() {
                             </span>
                         </div>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground"
-                        onClick={() => navigate('/')}
-                    >
-                        {t.login.backToHome}
-                    </Button>
                 </CardFooter>
             </Card>
 

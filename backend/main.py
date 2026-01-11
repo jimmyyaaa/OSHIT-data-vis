@@ -4,7 +4,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from data_cache import data_cache
-from routes import calculate_router, data_router, ai_router
+from routes import calculate_router, data_router, ai_router, auth_router
 
 # 配置logging - 显示所有日志级别
 logging.basicConfig(
@@ -33,7 +33,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,  # In production, specify your frontend URL
     allow_credentials=True,
-    allow_methods=["GET", "POST"],  # Specify allowed methods
+    allow_methods=["GET", "POST", "OPTIONS"],  # Specify allowed methods
     allow_headers=["*"],
 )
 
@@ -67,4 +67,5 @@ async def startup_event():
 app.include_router(calculate_router)
 app.include_router(data_router)
 app.include_router(ai_router)
+app.include_router(auth_router)
 

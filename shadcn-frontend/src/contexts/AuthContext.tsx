@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface AuthContextType {
     isAuthenticated: boolean;
-    login: (token: string) => void;
+    login: (token: string, rememberMe: boolean) => void;
     logout: () => void;
     isLoading: boolean;
 }
@@ -14,20 +14,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
     useEffect(() => {
-        // 检查本地是否存在登录标记
-        const authStatus = localStorage.getItem('isLoggedIn') === 'true';
-        setIsAuthenticated(authStatus);
+        // 同时检查 localStorage (永久) 和 sessionStorage (会话)
+        const isAuthLocal = localStorage.getItem('isLoggedIn') === 'true';
+        const isAuthSession = sessionStorage.getItem('isLoggedIn') === 'true';
+
+        setIsAuthenticated(isAuthLocal || isAuthSession);
         setIsLoading(false);
     }, []);
 
-    const login = (_token: string) => {
-        // 这里未来可以存储真正的 JWT
-        localStorage.setItem('isLoggedIn', 'true');
+    const login = (token: string, rememberMe: boolean) => {
+        const storage = rememberMe ? localStorage : sessionStorage;
+
+        // 存储 Token 和 登录标记
+        storage.setItem('isLoggedIn', 'true');
+        storage.setItem('authToken', token);
         setIsAuthenticated(true);
     };
 
     const logout = () => {
+        // 清除所有可能的存储
         localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('authToken');
+        sessionStorage.removeItem('isLoggedIn');
+        sessionStorage.removeItem('authToken');
         setIsAuthenticated(false);
     };
 
