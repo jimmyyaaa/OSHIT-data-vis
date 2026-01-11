@@ -4,14 +4,20 @@ import * as React from 'react'
 import {
     Home,
     BarChart3,
+    LogOut,
 } from 'lucide-react'
 import { OrgBrand } from '@/components/org-brand'
 import { NavMain } from '@/components/nav-main'
 import { useLocale } from '@/contexts/LocaleContext'
+import { useAuth } from '@/contexts/AuthContext'
 import {
     Sidebar,
     SidebarContent,
+    SidebarFooter,
     SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
     SidebarRail,
 } from '@/components/ui/sidebar'
 
@@ -22,6 +28,7 @@ import {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const { getTranslations } = useLocale()
+    const { logout } = useAuth()
     const t = getTranslations()
 
     // 菜单数据配置 - 动态生成以支持语言切换
@@ -55,6 +62,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarContent>
                 <NavMain items={navMainData} />
             </SidebarContent>
+            <SidebarFooter>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            onClick={logout}
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                            <LogOut className="size-4" />
+                            <span>{t.login.logout}</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarFooter>
             <SidebarRail />
         </Sidebar>
     )
