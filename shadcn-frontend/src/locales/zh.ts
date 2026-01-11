@@ -145,5 +145,16 @@ export const zhTranslations = {
         priceTrend: '价格走势',
         dailyTrend: '买卖额对比',
         liqTrend: '流动性增减趋势',
-    }
+    },
+    login: {
+        title: '登录 OSHIT',
+        subtitle: '请输入账号密码访问数据看板',
+        username: '用户名',
+        password: '密码',
+        signIn: '登 录',
+        rememberMe: '记住我',
+        forgotPassword: '忘记密码？',
+        backToHome: '返回首页',
+        logout: '退出登录',
+    },
 };

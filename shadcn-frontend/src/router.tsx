@@ -5,6 +5,7 @@
 
 import type { RouteObject } from 'react-router-dom';
 import Dashboard from '@/pages/Dashboard';
+import LoginPage from '@/pages/Login';
 import StakingPage from '@/pages/Statistics/Staking';
 import TSPage from '@/pages/Statistics/TS';
 import POSPage from '@/pages/Statistics/POS';
@@ -14,40 +15,44 @@ import DeFiPage from '@/pages/Statistics/DeFi';
 import NotFound from '@/pages/NotFound';
 
 export const routes: RouteObject[] = [
-  {
-    path: '/',
-    element: <Dashboard />,
-  },
-  {
-    path: '/dashboard',
-    element: <Dashboard />,
-  },
-  {
-    path: '/statistics/staking',
-    element: <StakingPage />,
-  },
-  {
-    path: '/statistics/ts',
-    element: <TSPage />,
-  },
-  {
-    path: '/statistics/pos',
-    element: <POSPage />,
-  },
-  {
-    path: '/statistics/shitcode',
-    element: <ShitCodePage />,
-  },
-  {
-    path: '/statistics/revenue',
-    element: <RevenuePage />,
-  },
-  {
-    path: '/statistics/defi',
-    element: <DeFiPage />,
-  },
-  {
-    path: '*',
-    element: <NotFound />,
-  },
+    {
+        path: '/login',
+        element: <LoginPage />,
+    },
+    {
+        path: '/',
+        element: <Dashboard />,
+    },
+    {
+        path: '/dashboard',
+        element: <Dashboard />,
+    },
+    {
+        path: '/statistics/staking',
+        element: <StakingPage />,
+    },
+    {
+        path: '/statistics/ts',
+        element: <TSPage />,
+    },
+    {
+        path: '/statistics/pos',
+        element: <POSPage />,
+    },
+    {
+        path: '/statistics/shitcode',
+        element: <ShitCodePage />,
+    },
+    {
+        path: '/statistics/revenue',
+        element: <RevenuePage />,
+    },
+    {
+        path: '/statistics/defi',
+        element: <DeFiPage />,
+    },
+    {
+        path: '*',
+        element: <NotFound />,
+    },
 ];

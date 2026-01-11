@@ -145,5 +145,16 @@ export const enTranslations = {
         priceTrend: 'Price Trend',
         dailyTrend: 'Buy/Sell Comparison',
         liqTrend: 'Liquidity Add/Remove Trend',
-    }
+    },
+    login: {
+        title: 'Sign In to OSHIT',
+        subtitle: 'Enter your credentials to access the dashboard',
+        username: 'Username',
+        password: 'Password',
+        signIn: 'Sign In',
+        rememberMe: 'Remember me',
+        forgotPassword: 'Forgot password?',
+        backToHome: 'Back to home',
+        logout: 'Log Out',
+    },
 };
