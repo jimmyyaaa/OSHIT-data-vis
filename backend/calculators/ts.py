@@ -215,7 +215,6 @@ def _calculate_avg_interval(df: pd.DataFrame) -> float:
         return 0.0
     
     # 按地址排序，计算时间差 - 纯向量化，无循环
-    df = df.sort_values([TIMESTAMP_COL, 'Receiver Address'])
     df_sorted = df.sort_values(['Receiver Address', TIMESTAMP_COL])
     
     # 按地址计算时间差
@@ -237,9 +236,9 @@ def _calculate_daily_data(
     
     # 复制并添加日期列
     df = df_ts.copy()
-    df['date'] = df[TIMESTAMP_COL].apply(
-        lambda ts: (ts - pd.Timedelta(days=1)).strftime('%Y-%m-%d') if ts.hour < 8 else ts.strftime('%Y-%m-%d')
-    )
+    # 使用向量化操作计算交易日 (以 8am 为边界)
+    # (ts - 8h).date() 会将 00:00-07:59 的交易归入前一天
+    df['date'] = (df[TIMESTAMP_COL] - pd.Timedelta(hours=8)).dt.strftime('%Y-%m-%d')
     
     # 按日期聚合
     daily = df.groupby('date').agg({

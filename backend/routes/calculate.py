@@ -175,7 +175,7 @@ async def calculate_ts(request: DateRangeRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[Revenue Error] {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"[TS Error] {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
