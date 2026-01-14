@@ -23,20 +23,15 @@ def load_sheet_data(sheet_names):
     gc = gspread.authorize(creds)
 
     OPERATIONAL_SHEET_ID = os.getenv("OPERATIONAL_SHEET_ID")
-    DEFI_SHEET_ID = os.getenv("DEFI_SHEET_ID")
-    if not OPERATIONAL_SHEET_ID or not DEFI_SHEET_ID:
-        raise ValueError("OPERATIONAL_SHEET_ID and DEFI_SHEET_ID environment variables must be set")
+    if not OPERATIONAL_SHEET_ID:
+        raise ValueError("OPERATIONAL_SHEET_ID environment variable must be set")
 
     op_sh = gc.open_by_key(OPERATIONAL_SHEET_ID)
-    df_sh = gc.open_by_key(DEFI_SHEET_ID)
 
     result = {}
     for sheet_name in sheet_names:
-        # Liq_Pool_Activity 从 defi sheet 加载，其他从 operational sheet 加载
-        if sheet_name == "Liq_Pool_Activity":
-            ws = df_sh.worksheet(sheet_name)
-        else:
-            ws = op_sh.worksheet(sheet_name)
+        # 所有保留的表格目前都从 operational sheet 加载
+        ws = op_sh.worksheet(sheet_name)
 
         records = ws.get_all_records()
         df = pd.DataFrame(records)
@@ -45,6 +40,6 @@ def load_sheet_data(sheet_names):
             df['Timestamp(UTC+8)'] = pd.to_datetime(df['Timestamp(UTC+8)'])
 
         result[sheet_name] = df
-        logger.info(f"Loaded sheet: {sheet_name} from {'defi' if sheet_name == 'Liq_Pool_Activity' else 'operational'} sheet")
+        logger.info(f"Loaded sheet: {sheet_name} from operational sheet")
 
     return result

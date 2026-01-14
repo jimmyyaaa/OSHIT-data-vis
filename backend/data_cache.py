@@ -201,17 +201,12 @@ class DataCache:
         """
         try:
             sheet_names = [
-                "POS_Log",
-                "Staking_Log",
-                "Staking_Amount_Log",
-                "ShitCode_Log",
                 "TS_Discord",
                 "SHIT_Price_Log",
-                "Liq_Pool_Activity",
             ]
             
             # 从 Google Sheet 加载数据（返回 DataFrame）
-            print("⏳ 从 Google Sheet 加载数据...")
+            print(f"⏳ 从 Google Sheet 加载数据: {sheet_names}...")
             data = load_sheet_data(sheet_names)
             
             # 数据清洗（处理日期时间列）

@@ -39,21 +39,12 @@ async def calculate_staking(request: DateRangeRequest):
     try:
         from data_cache import data_cache
         from calculators.staking import calculate_staking as staking_calc
+        from utils.db_loader import load_staking_amount_from_db, load_staking_reward_from_db
         
         if not data_cache.is_cached:
             raise HTTPException(
                 status_code=status.HTTP_412_PRECONDITION_FAILED,
                 detail="数据未缓存，请先调用 /loadData"
-            )
-        
-        # 获取数据
-        df_staking_amount = data_cache.data.get('Staking_Amount_Log')
-        df_staking_log = data_cache.data.get('Staking_Log')
-        
-        if df_staking_amount is None or df_staking_log is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="缺少 Staking_Amount_Log 或 Staking_Log"
             )
         
         # 日期范围计算（UTC+8 00:00）
@@ -65,11 +56,17 @@ async def calculate_staking(request: DateRangeRequest):
         prev_start = current_start - pd.Timedelta(days=period_length)
         prev_end = current_start
         
-        # 分割数据
-        df_amount_current = df_staking_amount[(df_staking_amount[timestamp_col] >= current_start) & (df_staking_amount[timestamp_col] < current_end)].copy()
-        df_amount_prev = df_staking_amount[(df_staking_amount[timestamp_col] >= prev_start) & (df_staking_amount[timestamp_col] < current_start)].copy()
-        df_log_current = df_staking_log[(df_staking_log[timestamp_col] >= current_start) & (df_staking_log[timestamp_col] < current_end)].copy()
-        df_log_prev = df_staking_log[(df_staking_log[timestamp_col] >= prev_start) & (df_staking_log[timestamp_col] < current_start)].copy()
+        # 从数据库加载数据
+        df_staking_amount_all = load_staking_amount_from_db(prev_start, current_end)
+        df_staking_log_all = load_staking_reward_from_db(prev_start, current_end)
+        
+        # 分割 Staking Amount 数据
+        df_amount_current = df_staking_amount_all[(df_staking_amount_all[timestamp_col] >= current_start) & (df_staking_amount_all[timestamp_col] < current_end)].copy()
+        df_amount_prev = df_staking_amount_all[(df_staking_amount_all[timestamp_col] >= prev_start) & (df_staking_amount_all[timestamp_col] < current_start)].copy()
+        
+        # 分割 Staking Reward (Log) 数据
+        df_log_current = df_staking_log_all[(df_staking_log_all[timestamp_col] >= current_start) & (df_staking_log_all[timestamp_col] < current_end)].copy()
+        df_log_prev = df_staking_log_all[(df_staking_log_all[timestamp_col] >= prev_start) & (df_staking_log_all[timestamp_col] < current_start)].copy()
         
         # 调用纯函数
         result = staking_calc(df_amount_current, df_log_current, df_amount_prev, df_log_prev)
@@ -200,19 +197,13 @@ async def calculate_pos(request: DateRangeRequest):
     try:
         # 从 data_cache 获取数据
         from data_cache import data_cache
+        from calculators.pos import calculate_pos
+        from utils.db_loader import load_pos_log_from_db
         
         if not data_cache.is_cached:
             raise HTTPException(
                 status_code=status.HTTP_412_PRECONDITION_FAILED,
                 detail="数据未缓存，请先调用 /loadData"
-            )
-        
-        # 获取 POS_Log 数据
-        df_pos = data_cache.data.get('POS_Log')
-        if df_pos is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="缺少 POS_Log 数据表"
             )
         
         # 获取日期范围（POS 使用 12pm 作为日期边界）
@@ -224,14 +215,14 @@ async def calculate_pos(request: DateRangeRequest):
         prev_start = current_start - pd.Timedelta(days=period_length)
         prev_end = current_start
         
-        # 按日期范围分割数据
-        # current_range: [current_start, current_end) (左闭右开)
-        # prev_range: [prev_start, current_start) (左闭右开)
-        df_current = df_pos[(df_pos[timestamp_col] >= current_start) & (df_pos[timestamp_col] < current_end)].copy()
-        df_prev = df_pos[(df_pos[timestamp_col] >= prev_start) & (df_pos[timestamp_col] < current_start)].copy()
+        # 从数据库加载数据
+        df_pos_all = load_pos_log_from_db(prev_start, current_end)
         
-        # 直接调用计算函数（不创建 class 实例）
-        from calculators.pos import calculate_pos
+        # 按日期范围分割数据
+        df_current = df_pos_all[(df_pos_all[timestamp_col] >= current_start) & (df_pos_all[timestamp_col] < current_end)].copy()
+        df_prev = df_pos_all[(df_pos_all[timestamp_col] >= prev_start) & (df_pos_all[timestamp_col] < current_start)].copy()
+        
+        # 调用纯函数
         result = calculate_pos(df_current, df_prev)
         
         return POSCalculateResponse(
@@ -269,20 +260,12 @@ async def calculate_shitcode(request: DateRangeRequest):
     try:
         from data_cache import data_cache
         from calculators.shitcode import calculate_shitcode as shitcode_calc
+        from utils.db_loader import load_shitcode_log_from_db
         
         if not data_cache.is_cached:
             raise HTTPException(
                 status_code=status.HTTP_412_PRECONDITION_FAILED,
                 detail="数据未缓存，请先调用 /loadData"
-            )
-        
-        # 获取数据
-        df_shitcode = data_cache.data.get('ShitCode_Log')
-        
-        if df_shitcode is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="缺少 ShitCode_Log"
             )
         
         # 日期范围计算（UTC+8 00:00）
@@ -294,9 +277,12 @@ async def calculate_shitcode(request: DateRangeRequest):
         prev_start = current_start - pd.Timedelta(days=period_length)
         prev_end = current_start
         
+        # 从数据库加载数据
+        df_shitcode_all = load_shitcode_log_from_db(prev_start, current_end)
+        
         # 分割数据
-        df_current = df_shitcode[(df_shitcode[timestamp_col] >= current_start) & (df_shitcode[timestamp_col] < current_end)].copy()
-        df_prev = df_shitcode[(df_shitcode[timestamp_col] >= prev_start) & (df_shitcode[timestamp_col] < current_start)].copy()
+        df_current = df_shitcode_all[(df_shitcode_all[timestamp_col] >= current_start) & (df_shitcode_all[timestamp_col] < current_end)].copy()
+        df_prev = df_shitcode_all[(df_shitcode_all[timestamp_col] >= prev_start) & (df_shitcode_all[timestamp_col] < current_start)].copy()
         
         # 调用纯函数
         result = shitcode_calc(df_current, df_prev)
@@ -335,23 +321,17 @@ async def calculate_revenue(request: DateRangeRequest):
     try:
         from data_cache import data_cache
         from calculators.revenue import calculate_revenue as revenue_calc
-        from utils.db_loader import load_ts_log_from_db
+        from utils.db_loader import (
+            load_ts_log_from_db, 
+            load_pos_log_from_db, 
+            load_staking_reward_from_db, 
+            load_shitcode_log_from_db
+        )
         
         if not data_cache.is_cached:
             raise HTTPException(
                 status_code=status.HTTP_412_PRECONDITION_FAILED,
                 detail="数据未缓存，请先调用 /loadData"
-            )
-        
-        # 获取其他数据源
-        df_pos = data_cache.data.get('POS_Log')
-        df_staking = data_cache.data.get('Staking_Log')
-        df_shitcode = data_cache.data.get('ShitCode_Log')
-        
-        if df_pos is None or df_staking is None or df_shitcode is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="缺少必要的数据源 (POS, Staking 或 ShitCode)"
             )
         
         timestamp_col = 'Timestamp(UTC+8)'
@@ -374,20 +354,23 @@ async def calculate_revenue(request: DateRangeRequest):
         pos_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=12, minute=0, second=0, microsecond=0)
         pos_prev_start = pos_start - pd.Timedelta(days=ts_period)
         
-        df_pos_current = df_pos[(df_pos[timestamp_col] >= pos_start) & (df_pos[timestamp_col] < pos_end)].copy()
-        df_pos_prev = df_pos[(df_pos[timestamp_col] >= pos_prev_start) & (df_pos[timestamp_col] < pos_start)].copy()
+        df_pos_all = load_pos_log_from_db(pos_prev_start, pos_end)
+        df_pos_current = df_pos_all[(df_pos_all[timestamp_col] >= pos_start) & (df_pos_all[timestamp_col] < pos_end)].copy()
+        df_pos_prev = df_pos_all[(df_pos_all[timestamp_col] >= pos_prev_start) & (df_pos_all[timestamp_col] < pos_start)].copy()
         
         # Staking（00:00边界）
         stake_start = pd.to_datetime(request.start_date).replace(hour=0, minute=0, second=0, microsecond=0)
         stake_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         stake_prev_start = stake_start - pd.Timedelta(days=ts_period)
         
-        df_staking_current = df_staking[(df_staking[timestamp_col] >= stake_start) & (df_staking[timestamp_col] < stake_end)].copy()
-        df_staking_prev = df_staking[(df_staking[timestamp_col] >= stake_prev_start) & (df_staking[timestamp_col] < stake_start)].copy()
+        df_staking_all = load_staking_reward_from_db(stake_prev_start, stake_end)
+        df_staking_current = df_staking_all[(df_staking_all[timestamp_col] >= stake_start) & (df_staking_all[timestamp_col] < stake_end)].copy()
+        df_staking_prev = df_staking_all[(df_staking_all[timestamp_col] >= stake_prev_start) & (df_staking_all[timestamp_col] < stake_start)].copy()
         
         # ShitCode（00:00边界）
-        df_shitcode_current = df_shitcode[(df_shitcode[timestamp_col] >= stake_start) & (df_shitcode[timestamp_col] < stake_end)].copy()
-        df_shitcode_prev = df_shitcode[(df_shitcode[timestamp_col] >= stake_prev_start) & (df_shitcode[timestamp_col] < stake_start)].copy()
+        df_shitcode_all = load_shitcode_log_from_db(stake_prev_start, stake_end)
+        df_shitcode_current = df_shitcode_all[(df_shitcode_all[timestamp_col] >= stake_start) & (df_shitcode_all[timestamp_col] < stake_end)].copy()
+        df_shitcode_prev = df_shitcode_all[(df_shitcode_all[timestamp_col] >= stake_prev_start) & (df_shitcode_all[timestamp_col] < stake_start)].copy()
         
         # 调用纯函数
         result = revenue_calc(
@@ -431,6 +414,7 @@ async def calculate_defi(request: DateRangeRequest):
     try:
         from data_cache import data_cache
         from calculators.defi import calculate_defi as defi_calc
+        from utils.db_loader import load_defi_from_db
         
         if not data_cache.is_cached:
             raise HTTPException(
@@ -438,15 +422,8 @@ async def calculate_defi(request: DateRangeRequest):
                 detail="数据未缓存，请先调用 /loadData"
             )
         
-        # 获取数据
-        df_defi = data_cache.data.get('Liq_Pool_Activity')
+        # 获取价格数据（仍然从缓存获取，或者直到有专门的 DB 加载器）
         df_price = data_cache.data.get('SHIT_Price_Log')
-        
-        if df_defi is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="缺少 Liq_Pool_Activity"
-            )
         
         # 日期范围计算（UTC+8 00:00）
         timestamp_col = 'Timestamp(UTC+8)'
@@ -457,9 +434,12 @@ async def calculate_defi(request: DateRangeRequest):
         prev_start = current_start - pd.Timedelta(days=period_length)
         prev_end = current_start
         
+        # 从数据库加载 DeFi 活动数据
+        df_defi_all = load_defi_from_db(prev_start, current_end)
+        
         # 分割数据
-        df_current = df_defi[(df_defi[timestamp_col] >= current_start) & (df_defi[timestamp_col] < current_end)].copy()
-        df_prev = df_defi[(df_defi[timestamp_col] >= prev_start) & (df_defi[timestamp_col] < current_start)].copy()
+        df_current = df_defi_all[(df_defi_all[timestamp_col] >= current_start) & (df_defi_all[timestamp_col] < current_end)].copy()
+        df_prev = df_defi_all[(df_defi_all[timestamp_col] >= prev_start) & (df_defi_all[timestamp_col] < current_start)].copy()
         
         # 分割价格数据（如果存在）
         df_price_current = None
