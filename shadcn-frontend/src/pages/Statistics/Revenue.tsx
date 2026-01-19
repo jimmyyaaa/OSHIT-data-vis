@@ -106,31 +106,31 @@ export default function RevenuePage() {
             currentKey: "tsRevenueCurrent",
             deltaKey: "tsRevenueDelta",
             title: t.revenue.tsRevenue,
-            unit: "USDT"
+            unit: "SOL"
         },
         {
             currentKey: "posRevenueCurrent",
             deltaKey: "posRevenueDelta",
             title: t.revenue.posRevenue,
-            unit: "USDT"
+            unit: "SOL"
         },
         {
             currentKey: "stakingRevenueCurrent",
             deltaKey: "stakingRevenueDelta",
             title: t.revenue.stakingRevenue,
-            unit: "USDT"
+            unit: "SOL"
         },
         {
             currentKey: "shitCodeRevenueCurrent",
             deltaKey: "shitCodeRevenueDelta",
             title: t.revenue.shitcodeRevenue,
-            unit: "USDT"
+            unit: "SOL"
         },
         {
             currentKey: "totalRevenueCurrent",
             deltaKey: "totalRevenueDelta",
             title: t.revenue.totalRevenue,
-            unit: "USDT"
+            unit: "SOL"
         },
     ];
 
@@ -205,6 +205,7 @@ export default function RevenuePage() {
                                             unit={metric.unit}
                                             delta={data?.metrics[metric.deltaKey as keyof RevenueMetrics] ?? null}
                                             format="decimal"
+                                            precision={4}
                                         />
                                     ))}
                                 </div>
@@ -226,6 +227,7 @@ export default function RevenuePage() {
                                             nameKey="source"
                                             valueKey="amount"
                                             height={380}
+                                            labelPrecision={4}
                                         />
                                     </TabsContent>
 
@@ -234,6 +236,8 @@ export default function RevenuePage() {
                                             title={t.revenue.dailyTrend}
                                             data={data?.dailyData ?? []}
                                             xAxisKey="date"
+                                            yAxisPrecision={4}
+                                            labelPrecision={4}
                                             series={[
                                                 {
                                                     dataKey: "tsRevenue",
