@@ -111,6 +111,8 @@ export const enTranslations = {
         totalRevenue: 'Total Revenue',
         tsRevenue: 'TS Revenue',
         posRevenue: 'POS Revenue',
+        stakingRevenue: 'Staking Revenue',
+        shitcodeRevenue: 'ShitCode Revenue',
         otherRevenue: 'Other Revenue',
         revenueComposition: 'Revenue Composition',
         dailyRevenue: 'Daily Revenue Trend',

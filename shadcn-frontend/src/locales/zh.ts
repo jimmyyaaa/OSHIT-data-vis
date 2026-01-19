@@ -111,6 +111,8 @@ export const zhTranslations = {
         totalRevenue: '总收入',
         tsRevenue: 'TS 收入',
         posRevenue: 'POS 收入',
+        stakingRevenue: '质押收入',
+        shitcodeRevenue: 'ShitCode 收入',
         otherRevenue: '其他收入',
         revenueComposition: '收入构成',
         dailyRevenue: '每日收入趋势',
