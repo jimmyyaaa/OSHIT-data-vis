@@ -136,6 +136,37 @@ if (response.status === 412) {
 
 ## 🚀 Development Workflow
 
+### TS_Discord Removal Execution Plan (Jan 2026)
+**Goal**: Remove all dependencies on `TS_Discord` Google Sheet and focus on pure on-chain TS metrics.
+
+#### Phase 1: Backend Cleanup
+- [x] **data_cache.py**: Remove `TS_Discord` from `sheet_names`.
+- [x] **schemas.py**: Remove `rewardCount`, `rewardCost`, and `roiWithReward` from `TSMetrics`.
+- [x] **calculators/ts.py**: Remove Discord parameters from `calculate_ts` and delete reward calculation logic.
+- [x] **routes/calculate.py**: Stop fetching `TS_Discord` from cache in `calculate_ts route.
+
+#### Phase 2: Frontend Cleanup & Renaming
+- [x] **locales/zh.ts & en.ts**: 
+    - Rename `revenueWithoutReward` -> `revenue`
+    - Rename `shitCostWithoutReward` -> `shitCost`
+    - Rename `roiWithoutReward` -> `roi`
+    - Remove keys for `rewardCount`, `rewardCost`, `roiWithReward`.
+- [x] **pages/Statistics/TS.tsx**: Update `TSMetrics` interface and remove Reward Analysis `StatisticCard`s.
+
+### 🚩 Anomaly Detection Execution Plan (Jan 2026)
+**Goal**: Implement a single-date audit system to detect user behavior anomalies across TS, POS, and Staking.
+
+#### Phase 1: Backend Logic
+- [ ] **calculators/anomaly.py**: Implement `calculate_anomalies` using pandas `groupby(['address', 'date'])`.
+    - TS Rule: `draw > 3` (High), `draw < 3` (Med), `draw == 3 & ts < 20` (Med). 
+    - POS/Staking Rule: `count > 1` (Med).
+- [ ] **routes/calculate.py**: Add `POST /calculate/anomalies` handling single date request with standard boundaries (TS=8am, POS=12pm, Staking=0am).
+
+#### Phase 2: Frontend Implementation
+- [ ] **locales**: Add anomaly type translations and severity labels.
+- [ ] **pages/Statistics/Anomaly.tsx**: Create the UI with a single date picker, risk summary grid, and detail table.
+- [ ] **services/dataService.ts**: Add `fetchAnomalyData(date: string)`.
+
 ### Backend Development
 ```bash
 cd backend

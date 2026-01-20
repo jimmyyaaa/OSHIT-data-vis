@@ -12,6 +12,7 @@ import POSPage from '@/pages/Statistics/POS';
 import ShitCodePage from '@/pages/Statistics/ShitCode';
 import RevenuePage from '@/pages/Statistics/Revenue';
 import DeFiPage from '@/pages/Statistics/DeFi';
+import AnomalyPage from '@/pages/Anomaly';
 import NotFound from '@/pages/NotFound';
 
 export const routes: RouteObject[] = [
@@ -26,6 +27,10 @@ export const routes: RouteObject[] = [
     {
         path: '/dashboard',
         element: <Dashboard />,
+    },
+    {
+        path: '/anomalies',
+        element: <AnomalyPage />,
     },
     {
         path: '/statistics/staking',

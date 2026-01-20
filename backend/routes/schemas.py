@@ -15,6 +15,11 @@ class DateRangeRequest(BaseModel):
     end_date: str    # YYYY-MM-DD
 
 
+class SingleDateRequest(BaseModel):
+    """单日期请求"""
+    date: str  # YYYY-MM-DD
+
+
 class LoginRequest(BaseModel):
     """登录请求"""
     username: str
@@ -101,14 +106,11 @@ class TSMetrics(BaseModel):
     luckyDrawsCurrent: int
     luckyDrawAmountCurrent: float
     luckyDrawAddressesCurrent: int
-    revenueWithoutRewardCurrent: float
-    shitCostWithoutRewardCurrent: float
-    roiWithoutRewardCurrent: float
-    rewardCountCurrent: int
-    rewardCostCurrent: float
-    roiWithRewardCurrent: float
+    revenueCurrent: float
+    shitCostCurrent: float
+    roiCurrent: float
     
-    # Previous (19)
+    # Previous (16)
     totalTxPrev: Optional[int] = None
     tsClaimPrev: Optional[int] = None
     totalAmountPrev: Optional[float] = None
@@ -122,14 +124,11 @@ class TSMetrics(BaseModel):
     luckyDrawsPrev: Optional[int] = None
     luckyDrawAmountPrev: Optional[float] = None
     luckyDrawAddressesPrev: Optional[int] = None
-    revenueWithoutRewardPrev: Optional[float] = None
-    shitCostWithoutRewardPrev: Optional[float] = None
-    roiWithoutRewardPrev: Optional[float] = None
-    rewardCountPrev: Optional[int] = None
-    rewardCostPrev: Optional[float] = None
-    roiWithRewardPrev: Optional[float] = None
+    revenuePrev: Optional[float] = None
+    shitCostPrev: Optional[float] = None
+    roiPrev: Optional[float] = None
     
-    # Delta (19) - None means "NA"
+    # Delta (16) - None means "NA"
     totalTxDelta: Optional[float] = None
     tsClaimDelta: Optional[float] = None
     totalAmountDelta: Optional[float] = None
@@ -143,12 +142,9 @@ class TSMetrics(BaseModel):
     luckyDrawsDelta: Optional[float] = None
     luckyDrawAmountDelta: Optional[float] = None
     luckyDrawAddressesDelta: Optional[float] = None
-    revenueWithoutRewardDelta: Optional[float] = None
-    shitCostWithoutRewardDelta: Optional[float] = None
-    roiWithoutRewardDelta: Optional[float] = None
-    rewardCountDelta: Optional[float] = None
-    rewardCostDelta: Optional[float] = None
-    roiWithRewardDelta: Optional[float] = None
+    revenueDelta: Optional[float] = None
+    shitCostDelta: Optional[float] = None
+    roiDelta: Optional[float] = None
 
 
 class DailyTSDataEntry(BaseModel):
@@ -452,4 +448,32 @@ class AISummaryRequest(BaseModel):
 class AISummaryResponse(BaseModel):
     """Response model for AI summary"""
     summary: str
+
+
+# ============================================
+# Anomaly Detection Models
+# ============================================
+
+class AnomalyDetail(BaseModel):
+    """异常详细数据"""
+    date: str
+    address: str
+    type: str          # 如: TS_LUCKY_DRAW, TS_OVER_CLAIM, DUPLICATE_CLAIM
+    description: str   # 易读的描述内容
+    severity: str      # high, medium, low
+    data: Dict[str, Any] # 原始数据支撑，如 {"luckyDraws": 5, "claims": 22}
+
+
+class AnomalySummary(BaseModel):
+    """异常统计摘要"""
+    totalCount: int
+    highRiskCount: int
+    mediumRiskCount: int
+    lowRiskCount: int
+
+
+class AnomalyCalculateResponse(BaseModel):
+    """异常检测计算响应"""
+    summary: AnomalySummary
+    anomalies: List[AnomalyDetail]
 

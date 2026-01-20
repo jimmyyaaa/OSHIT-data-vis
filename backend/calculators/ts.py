@@ -20,8 +20,6 @@ TS_LUCKY_DRAW = 3
 def calculate_ts(
     df_log_current: pd.DataFrame,
     df_log_prev: pd.DataFrame,
-    df_discord_current: Optional[pd.DataFrame] = None,
-    df_discord_prev: Optional[pd.DataFrame] = None,
     df_price_current: Optional[pd.DataFrame] = None,
     df_price_prev: Optional[pd.DataFrame] = None
 ) -> Dict[str, Any]:
@@ -31,8 +29,6 @@ def calculate_ts(
     Args:
         df_log_current: 当前周期的 TS_Log
         df_log_prev: 前一周期的 TS_Log
-        df_discord_current: 当前周期的 TS_Discord（可选）
-        df_discord_prev: 前一周期的 TS_Discord（可选）
         df_price_current: 当前周期的 SHIT_Price_Log（可选）
         df_price_prev: 前一周期的 SHIT_Price_Log（可选）
     
@@ -40,10 +36,6 @@ def calculate_ts(
         包含 metrics, dailyData, topUsers 的字典
     """
     # 处理空DataFrame
-    if df_discord_current is None:
-        df_discord_current = pd.DataFrame()
-    if df_discord_prev is None:
-        df_discord_prev = pd.DataFrame()
     if df_price_current is None:
         df_price_current = pd.DataFrame()
     if df_price_prev is None:
@@ -56,7 +48,6 @@ def calculate_ts(
     # 计算指标
     metrics = _compute_metrics(
         df_log_current, df_log_prev,
-        df_discord_current, df_discord_prev,
         avg_price_current, avg_price_prev
     )
     
@@ -76,8 +67,6 @@ def calculate_ts(
 def _compute_metrics(
     df_log_current: pd.DataFrame,
     df_log_prev: pd.DataFrame,
-    df_discord_current: pd.DataFrame,
-    df_discord_prev: pd.DataFrame,
     avg_price_current: float = 1.0,
     avg_price_prev: float = 1.0
 ) -> Dict[str, Any]:
@@ -85,10 +74,10 @@ def _compute_metrics(
     
     # 使用传入的价格参数
     # 当前周期指标
-    metrics_current = _compute_period_metrics(df_log_current, df_discord_current, avg_price_current)
+    metrics_current = _compute_period_metrics(df_log_current, avg_price_current)
     
     # 前一周期指标
-    metrics_prev = _compute_period_metrics(df_log_prev, df_discord_prev, avg_price_prev)
+    metrics_prev = _compute_period_metrics(df_log_prev, avg_price_prev)
     
     # 计算 Delta（百分比）
     def calc_delta(current: float, prev: float) -> Optional[float]:
@@ -115,7 +104,6 @@ def _compute_metrics(
 
 def _compute_period_metrics(
     df_ts: pd.DataFrame,
-    df_discord: pd.DataFrame,
     avg_price: float
 ) -> Dict[str, float]:
     """计算单个周期的所有指标"""
@@ -135,12 +123,9 @@ def _compute_period_metrics(
             'luckyDraws': 0.0,
             'luckyDrawAmount': 0.0,
             'luckyDrawAddresses': 0.0,
-            'revenueWithoutReward': 0.0,
-            'shitCostWithoutReward': 0.0,
-            'roiWithoutReward': 0.0,
-            'rewardCount': 0.0,
-            'rewardCost': 0.0,
-            'roiWithReward': 0.0,
+            'revenue': 0.0,
+            'shitCost': 0.0,
+            'roi': 0.0,
         }
     
     # 基础交易指标
@@ -177,14 +162,9 @@ def _compute_period_metrics(
     two_ref_tx = float(level2_count)
     
     # 收入和成本
-    revenue_without_reward = float(df_ts['SOL_Received'].sum()) if 'SOL_Received' in df_ts.columns else 0.0
-    shit_cost_without_reward = total_amount * avg_price
-    roi_without_reward = (revenue_without_reward / shit_cost_without_reward) if shit_cost_without_reward > 0 else 0.0
-    
-    # 奖励
-    reward_count = float(df_discord['SHIT Code Sent'].sum()) if len(df_discord) > 0 and 'SHIT Code Sent' in df_discord.columns else 0.0
-    reward_cost = reward_count * 5000 * avg_price
-    roi_with_reward = ((revenue_without_reward + reward_cost * 0.13) / (shit_cost_without_reward + reward_cost)) if (shit_cost_without_reward + reward_cost) > 0 else 0.0
+    revenue = float(df_ts['SOL_Received'].sum()) if 'SOL_Received' in df_ts.columns else 0.0
+    shit_cost = total_amount * avg_price
+    roi = (revenue / shit_cost) if shit_cost > 0 else 0.0
     
     return {
         'totalTx': int(total_tx),
@@ -200,12 +180,9 @@ def _compute_period_metrics(
         'luckyDraws': int(lucky_draws),
         'luckyDrawAmount': float(lucky_draw_amount),
         'luckyDrawAddresses': int(lucky_draw_addresses),
-        'revenueWithoutReward': float(revenue_without_reward),
-        'shitCostWithoutReward': float(shit_cost_without_reward),
-        'roiWithoutReward': float(roi_without_reward),
-        'rewardCount': int(reward_count),
-        'rewardCost': float(reward_cost),
-        'roiWithReward': float(roi_with_reward),
+        'revenue': float(revenue),
+        'shitCost': float(shit_cost),
+        'roi': float(roi),
     }
 
 

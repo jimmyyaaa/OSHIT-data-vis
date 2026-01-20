@@ -141,6 +141,31 @@ export async function fetchDefiData(
 }
 
 /**
+ * 获取异常检测数据
+ * @param date 单一日期 (YYYY-MM-DD)
+ */
+export async function fetchAnomalyData(date: string): Promise<any> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/calculate/anomalies`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ date }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("❌ fetchAnomalyData 失败:", error);
+        throw error;
+    }
+}
+
+/**
  * 通用计算请求函数
  * @param type 数据类型 (staking|ts|pos|shitcode|revenue|defi)
  * @param startDate 开始日期 (YYYY-MM-DD)

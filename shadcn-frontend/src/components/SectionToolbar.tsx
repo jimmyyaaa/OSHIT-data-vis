@@ -20,6 +20,8 @@ interface SectionToolbarProps {
     isAISummaryOpen?: boolean;
     onToggleAISummary?: (isOpen: boolean) => void;
     isLoading?: boolean;
+    hideDatePicker?: boolean;
+    children?: React.ReactNode;
 }
 
 /**
@@ -34,6 +36,8 @@ export function SectionToolbar({
     isAISummaryOpen = false,
     onToggleAISummary,
     isLoading = false,
+    hideDatePicker = false,
+    children,
 }: SectionToolbarProps) {
     const { startDate, endDate, handleDateChange } = useDateRange();
     const { getTranslations } = useLocale();
@@ -91,35 +95,38 @@ export function SectionToolbar({
         <div className="flex items-center justify-between gap-4 px-4 py-2 bg-background border-b shrink-0">
             {/* 左侧：日期范围选择 */}
             <div className="flex items-center gap-2">
-                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-56">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            {dateRange?.from ? formatDate(dateRange.from) : ""} - {dateRange?.to ? formatDate(dateRange.to) : ""}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-4" align="start">
-                        <div className="space-y-4">
-                            <CalendarComponent
-                                mode="range"
-                                selected={dateRange}
-                                onSelect={setDateRange}
-                                numberOfMonths={2}
-                                disabled={(date) =>
-                                    date > today || date < new Date(2025, 10, 1)
-                                }
-                                className="rounded-lg border"
-                            />
-                            <Button
-                                onClick={handleDateRangeSelect}
-                                className="w-full"
-                                size="sm"
-                            >
-                                {t.common.confirm}
+                {!hideDatePicker && (
+                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-56">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                {dateRange?.from ? formatDate(dateRange.from) : ""} - {dateRange?.to ? formatDate(dateRange.to) : ""}
                             </Button>
-                        </div>
-                    </PopoverContent>
-                </Popover>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-4" align="start">
+                            <div className="space-y-4">
+                                <CalendarComponent
+                                    mode="range"
+                                    selected={dateRange}
+                                    onSelect={setDateRange}
+                                    numberOfMonths={2}
+                                    disabled={(date) =>
+                                        date > today || date < new Date(2025, 10, 1)
+                                    }
+                                    className="rounded-lg border"
+                                />
+                                <Button
+                                    onClick={handleDateRangeSelect}
+                                    className="w-full"
+                                    size="sm"
+                                >
+                                    {t.common.confirm}
+                                </Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                )}
+                {children}
             </div>
 
             {/* 中间：标题 (可选) */}
@@ -131,26 +138,30 @@ export function SectionToolbar({
 
             {/* 右侧：刷新和 AI 按钮 */}
             <div className="flex items-center gap-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onRefresh}
-                    disabled={isLoading}
-                    className="gap-2"
-                >
-                    <RefreshCw className="h-4 w-4" />
-                    {t.common.refresh}
-                </Button>
-                <Button
-                    variant={isAISummaryOpen ? "default" : "outline"}
-                    size="sm"
-                    onClick={handleAISummaryToggle}
-                    disabled={isLoading}
-                    className={isAISummaryOpen ? "gap-2 bg-linear-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600" : "gap-2"}
-                >
-                    <Sparkles className="h-4 w-4" />
-                    {t.common.aiAnalysis}
-                </Button>
+                {onRefresh && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onRefresh}
+                        disabled={isLoading}
+                        className="gap-2"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        {t.common.refresh}
+                    </Button>
+                )}
+                {(onAISummary || onToggleAISummary) && (
+                    <Button
+                        variant={isAISummaryOpen ? "default" : "outline"}
+                        size="sm"
+                        onClick={handleAISummaryToggle}
+                        disabled={isLoading}
+                        className={isAISummaryOpen ? "gap-2 bg-linear-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600" : "gap-2"}
+                    >
+                        <Sparkles className="h-4 w-4" />
+                        {t.common.aiAnalysis}
+                    </Button>
+                )}
             </div>
         </div>
     );

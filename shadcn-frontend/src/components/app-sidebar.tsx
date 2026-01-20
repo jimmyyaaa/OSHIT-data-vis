@@ -4,6 +4,7 @@ import * as React from 'react'
 import {
     Home,
     BarChart3,
+    ShieldAlert,
     LogOut,
 } from 'lucide-react'
 import { OrgBrand } from '@/components/org-brand'
@@ -51,6 +52,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 { title: t.sidebar.revenue, url: '/statistics/revenue' },
                 { title: t.sidebar.defi, url: '/statistics/defi' },
             ],
+        },
+        {
+            title: t.sidebar.anomaly,
+            url: '/anomalies',
+            icon: ShieldAlert,
         },
     ]
 

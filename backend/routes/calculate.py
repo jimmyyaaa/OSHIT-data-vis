@@ -13,13 +13,14 @@ logger = logging.getLogger(__name__)
 
 # 导入所有 Pydantic 模型
 from .schemas import (
-    DateRangeRequest,
+    DateRangeRequest, SingleDateRequest,
     StakingMetrics, DailyDataEntry, TopStaker, StakingCalculateResponse,
     TSMetrics, DailyTSDataEntry, HeatmapData, TopTSUser, RepeatRankingEntry, TSCalculateResponse,
     POSMetrics, DailyPOSDataEntry, TopPOSUser, DuplicateAddressEntry, POSCalculateResponse,
     ShitCodeMetrics, DailyShitCodeDataEntry, TopShitCodeUser, ShitCodeCalculateResponse,
     RevenueMetrics, DailyRevenueDataEntry, RevenueCompositionEntry, RevenueCalculateResponse,
-    DeFiMetrics, DailyDeFiDataEntry, DeFiCalculateResponse
+    DeFiMetrics, DailyDeFiDataEntry, DeFiCalculateResponse,
+    AnomalyCalculateResponse, AnomalySummary, AnomalyDetail
 )
 
 # 创建路由
@@ -104,17 +105,13 @@ async def calculate_ts(request: DateRangeRequest):
     try:
         from data_cache import data_cache
         from calculators.ts import calculate_ts as ts_calc
-        from utils.db_loader import load_ts_log_from_db
+        from utils.db_loader import load_ts_log_from_db, load_price_history_from_db
         
         if not data_cache.is_cached:
             raise HTTPException(
                 status_code=status.HTTP_412_PRECONDITION_FAILED,
                 detail="数据未缓存，请先调用 /loadData"
             )
-        
-        # 获取其他辅助数据
-        df_ts_discord = data_cache.data.get('TS_Discord')
-        df_shit_price = data_cache.data.get('SHIT_Price_Log')
         
         # 日期范围计算（UTC+8 08:00）
         timestamp_col = 'Timestamp(UTC+8)'
@@ -129,6 +126,11 @@ async def calculate_ts(request: DateRangeRequest):
         logger.info(f"正在从数据库加载 TS_Log: {prev_start} 到 {current_end}")
         df_ts_log_all = load_ts_log_from_db(prev_start, current_end)
         
+        # 从数据库按需加载价格数据
+        logger.info(f"正在从数据库加载 Price History")
+        price_start_bound = prev_start.replace(hour=0, minute=0)
+        df_price_all = load_price_history_from_db(price_start_bound, current_end)
+        
         if df_ts_log_all.empty:
             logger.warning("未找到 TS_Log 数据")
             df_log_current = pd.DataFrame()
@@ -137,13 +139,6 @@ async def calculate_ts(request: DateRangeRequest):
             # 分割TS_Log数据
             df_log_current = df_ts_log_all[(df_ts_log_all[timestamp_col] >= current_start) & (df_ts_log_all[timestamp_col] < current_end)].copy()
             df_log_prev = df_ts_log_all[(df_ts_log_all[timestamp_col] >= prev_start) & (df_ts_log_all[timestamp_col] < current_start)].copy()
-        
-        # 分割TS_Discord数据（如果存在）
-        df_discord_current = pd.DataFrame()
-        df_discord_prev = pd.DataFrame()
-        if df_ts_discord is not None and len(df_ts_discord) > 0:
-            df_discord_current = df_ts_discord[(df_ts_discord[timestamp_col] >= current_start) & (df_ts_discord[timestamp_col] < current_end)].copy()
-            df_discord_prev = df_ts_discord[(df_ts_discord[timestamp_col] >= prev_start) & (df_ts_discord[timestamp_col] < current_start)].copy()
         
         # 分割SHIT_Price_Log数据（使用自然日边界）
         price_start = pd.to_datetime(request.start_date).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -154,12 +149,12 @@ async def calculate_ts(request: DateRangeRequest):
         
         df_price_current = pd.DataFrame()
         df_price_prev = pd.DataFrame()
-        if df_shit_price is not None and len(df_shit_price) > 0:
-            df_price_current = df_shit_price[(df_shit_price[timestamp_col] >= price_start) & (df_shit_price[timestamp_col] < price_end)].copy()
-            df_price_prev = df_shit_price[(df_shit_price[timestamp_col] >= prev_price_start) & (df_shit_price[timestamp_col] < prev_price_end)].copy()
+        if not df_price_all.empty:
+            df_price_current = df_price_all[(df_price_all[timestamp_col] >= price_start) & (df_price_all[timestamp_col] < price_end)].copy()
+            df_price_prev = df_price_all[(df_price_all[timestamp_col] >= prev_price_start) & (df_price_all[timestamp_col] < prev_price_end)].copy()
         
         # 调用纯函数
-        result = ts_calc(df_log_current, df_log_prev, df_discord_current, df_discord_prev, df_price_current, df_price_prev)
+        result = ts_calc(df_log_current, df_log_prev, df_price_current, df_price_prev)
         
         return TSCalculateResponse(
             metrics=TSMetrics(**result['metrics']),
@@ -414,16 +409,13 @@ async def calculate_defi(request: DateRangeRequest):
     try:
         from data_cache import data_cache
         from calculators.defi import calculate_defi as defi_calc
-        from utils.db_loader import load_defi_from_db
+        from utils.db_loader import load_defi_from_db, load_price_history_from_db
         
         if not data_cache.is_cached:
             raise HTTPException(
                 status_code=status.HTTP_412_PRECONDITION_FAILED,
                 detail="数据未缓存，请先调用 /loadData"
             )
-        
-        # 获取价格数据（仍然从缓存获取，或者直到有专门的 DB 加载器）
-        df_price = data_cache.data.get('SHIT_Price_Log')
         
         # 日期范围计算（UTC+8 00:00）
         timestamp_col = 'Timestamp(UTC+8)'
@@ -433,9 +425,12 @@ async def calculate_defi(request: DateRangeRequest):
         period_length = (pd.to_datetime(request.end_date) - pd.to_datetime(request.start_date)).days + 1
         prev_start = current_start - pd.Timedelta(days=period_length)
         prev_end = current_start
-        
+
         # 从数据库加载 DeFi 活动数据
         df_defi_all = load_defi_from_db(prev_start, current_end)
+        
+        # 从数据库按需加载价格数据
+        df_price_all = load_price_history_from_db(current_start, current_end)
         
         # 分割数据
         df_current = df_defi_all[(df_defi_all[timestamp_col] >= current_start) & (df_defi_all[timestamp_col] < current_end)].copy()
@@ -443,8 +438,8 @@ async def calculate_defi(request: DateRangeRequest):
         
         # 分割价格数据（如果存在）
         df_price_current = None
-        if df_price is not None and len(df_price) > 0:
-            df_price_current = df_price[(df_price[timestamp_col] >= current_start) & (df_price[timestamp_col] < current_end)].copy()
+        if not df_price_all.empty:
+            df_price_current = df_price_all[(df_price_all[timestamp_col] >= current_start) & (df_price_all[timestamp_col] < current_end)].copy()
         
         # 调用纯函数
         result = defi_calc(df_current, df_prev, df_price_current)
@@ -459,6 +454,40 @@ async def calculate_defi(request: DateRangeRequest):
         raise
     except Exception as e:
         logger.error(f"[DeFi Error] {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+# ============================================
+# Anomaly Detection Routes
+# ============================================
+
+@router.post("/anomalies", response_model=AnomalyCalculateResponse)
+async def calculate_anomalies(request: SingleDateRequest):
+    """
+    计算特定日期的异常行为检测
+    
+    Args:
+        request: 包含 date (YYYY-MM-DD) 的请求
+    
+    Returns:
+        AnomalyCalculateResponse: 汇总统计和异常明细
+    """
+    try:
+        from calculators.anomaly import calculate_anomalies as anomaly_calc
+        
+        # 直接调用计算函数
+        result = anomaly_calc(request.date)
+        
+        return AnomalyCalculateResponse(
+            summary=AnomalySummary(**result['summary']),
+            anomalies=[AnomalyDetail(**item) for item in result['anomalies']]
+        )
+    
+    except Exception as e:
+        logger.error(f"[Anomaly Error] {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

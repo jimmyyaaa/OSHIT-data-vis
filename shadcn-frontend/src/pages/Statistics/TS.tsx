@@ -36,12 +36,9 @@ interface TSMetrics {
     luckyDrawsCurrent: number | null;
     luckyDrawAmountCurrent: number | null;
     luckyDrawAddressesCurrent: number | null;
-    revenueWithoutRewardCurrent: number | null;
-    shitCostWithoutRewardCurrent: number | null;
-    roiWithoutRewardCurrent: number | null;
-    rewardCountCurrent: number | null;
-    rewardCostCurrent: number | null;
-    roiWithRewardCurrent: number | null;
+    revenueCurrent: number | null;
+    shitCostCurrent: number | null;
+    roiCurrent: number | null;
     totalTxDelta: number | null;
     tsClaimDelta: number | null;
     totalAmountDelta: number | null;
@@ -55,12 +52,9 @@ interface TSMetrics {
     luckyDrawsDelta: number | null;
     luckyDrawAmountDelta: number | null;
     luckyDrawAddressesDelta: number | null;
-    revenueWithoutRewardDelta: number | null;
-    shitCostWithoutRewardDelta: number | null;
-    roiWithoutRewardDelta: number | null;
-    rewardCountDelta: number | null;
-    rewardCostDelta: number | null;
-    roiWithRewardDelta: number | null;
+    revenueDelta: number | null;
+    shitCostDelta: number | null;
+    roiDelta: number | null;
 }
 
 interface DailyTSDataEntry {
@@ -330,43 +324,23 @@ export default function TSPage() {
                                                 format="number"
                                             />
                                             <StatisticCard
-                                                title={t.ts.revenueWithoutReward}
-                                                value={data?.metrics.revenueWithoutRewardCurrent ?? null}
+                                                title={t.ts.revenue}
+                                                value={data?.metrics.revenueCurrent ?? null}
                                                 unit="SOL"
-                                                delta={data?.metrics.revenueWithoutRewardDelta ?? null}
+                                                delta={data?.metrics.revenueDelta ?? null}
                                                 format="decimal"
                                             />
                                             <StatisticCard
-                                                title={t.ts.shitCostWithoutReward}
-                                                value={data?.metrics.shitCostWithoutRewardCurrent ?? null}
+                                                title={t.ts.shitCost}
+                                                value={data?.metrics.shitCostCurrent ?? null}
                                                 unit="SOL"
-                                                delta={data?.metrics.shitCostWithoutRewardDelta ?? null}
+                                                delta={data?.metrics.shitCostDelta ?? null}
                                                 format="decimal"
                                             />
                                             <StatisticCard
-                                                title={t.ts.roiWithoutReward}
-                                                value={data?.metrics.roiWithoutRewardCurrent ?? null}
-                                                delta={data?.metrics.roiWithoutRewardDelta ?? null}
-                                                format="decimal"
-                                            />
-                                            <StatisticCard
-                                                title={t.ts.rewardCount}
-                                                value={data?.metrics.rewardCountCurrent ?? null}
-                                                unit={t.common.times}
-                                                delta={data?.metrics.rewardCountDelta ?? null}
-                                                format="number"
-                                            />
-                                            <StatisticCard
-                                                title={t.ts.rewardCost}
-                                                value={data?.metrics.rewardCostCurrent ?? null}
-                                                unit="SOL"
-                                                delta={data?.metrics.rewardCostDelta ?? null}
-                                                format="decimal"
-                                            />
-                                            <StatisticCard
-                                                title={t.ts.roiWithReward}
-                                                value={data?.metrics.roiWithRewardCurrent ?? null}
-                                                delta={data?.metrics.roiWithRewardDelta ?? null}
+                                                title={t.ts.roi}
+                                                value={data?.metrics.roiCurrent ?? null}
+                                                delta={data?.metrics.roiDelta ?? null}
                                                 format="decimal"
                                             />
                                         </div>

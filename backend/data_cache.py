@@ -201,8 +201,6 @@ class DataCache:
         """
         try:
             sheet_names = [
-                "TS_Discord",
-                "SHIT_Price_Log",
             ]
             
             # 从 Google Sheet 加载数据（返回 DataFrame）

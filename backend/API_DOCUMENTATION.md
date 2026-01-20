@@ -215,12 +215,9 @@ UTC+0 00:00 (自然日)
     "luckyDrawsCurrent": 10,
     "luckyDrawAmountCurrent": 5000,
     "luckyDrawAddressesCurrent": 8,
-    "revenueWithoutRewardCurrent": 2500,
-    "shitCostWithoutRewardCurrent": 100000,
-    "roiWithoutRewardCurrent": 2.5,
-    "rewardCountCurrent": 100,
-    "rewardCostCurrent": 10000,
-    "roiWithRewardCurrent": 2.3,
+    "revenueCurrent": 2500,
+    "shitCostCurrent": 100000,
+    "roiCurrent": 2.5,
     // ... Prev 和 Delta 字段
   },
   "dailyData": [

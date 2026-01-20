@@ -31,7 +31,7 @@ allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 # CORS middleware to allow frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,  # In production, specify your frontend URL
+    allow_origins=["*"],  # In production, specify your frontend URL
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],  # Specify allowed methods
     allow_headers=["*"],

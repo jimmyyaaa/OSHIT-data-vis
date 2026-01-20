@@ -395,4 +395,55 @@ def load_defi_from_db(start_dt: Optional[pd.Timestamp] = None, end_dt: Optional[
     except Exception as e:
         logger.error(f"从 DeFi 数据库加载数据失败: {e}")
         return pd.DataFrame()
+
+def load_price_history_from_db(start_dt: Optional[pd.Timestamp] = None, end_dt: Optional[pd.Timestamp] = None):
+    """
+    直接从数据库的 shit_price_history 表加载价格数据。
+    """
+    engine = get_db_engine()
+    if engine is None:
+        return pd.DataFrame()
+        
+    query = "SELECT timestamp_utc, timestamp_utc8, price FROM shit_price_history"
+    params = {}
+    
+    if start_dt is not None and end_dt is not None:
+        # 数据库中通常存的是 UTC 时间
+        utc_start = start_dt - pd.Timedelta(hours=8)
+        utc_end = end_dt - pd.Timedelta(hours=8)
+        
+        query += " WHERE timestamp_utc >= :start AND timestamp_utc < :end"
+        params = {
+            "start": utc_start.strftime('%Y-%m-%d %H:%M:%S'),
+            "end": utc_end.strftime('%Y-%m-%d %H:%M:%S')
+        }
+    
+    try:
+        logger.info(f"正在从价格数据库执行 SQL 查询: {query} 参数: {params}")
+        with engine.connect() as conn:
+            df = pd.read_sql(text(query), conn, params=params)
+        
+        if df.empty:
+            logger.warning(f"价格数据库返回数据为空 (范围: {start_dt} 到 {end_dt})")
+            return pd.DataFrame()
+            
+        # 1. 字段映射和时区处理
+        # 计算逻辑期望的字段是 Timestamp(UTC+8) 和 Price
+        df['Timestamp(UTC+8)'] = pd.to_datetime(df['timestamp_utc8'])
+        df = df.rename(columns={
+            'price': 'Price'
+        })
+        
+        # 3. 类型转换
+        df['Price'] = df['Price'].astype(float)
+        
+        # 只保留需要的列
+        df = df[['Timestamp(UTC+8)', 'Price']]
+        
+        logger.info(f"从价格数据库成功加载了 {len(df)} 条记录")
+        return df
+        
+    except Exception as e:
+        logger.error(f"从价格数据库加载数据失败: {e}")
+        return pd.DataFrame()
     

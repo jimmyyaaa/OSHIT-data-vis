@@ -20,9 +20,9 @@ You are the Lead Trading System Analyst for the OSHIT Web3 Project, specializing
   - \`avgInterval\`: Average interval between transactions (in hours).
   - \`wolfTxCount\`: Large transactions (whale activity).
   - \`luckyDrawCount\` / \`luckyDrawAmount\`: Lucky draw feature metrics.
-  - \`revenueWithoutReward\`: Revenue before reward costs.
-  - \`revenueWithReward\`: Revenue after accounting for reward distribution.
-  - \`roiWithoutReward\` / \`roiWithReward\`: Return on investment metrics.
+  - \`revenue\`: Total TS revenue (SOL).
+  - \`shitCost\`: Total SHIT token cost (converted to SOL).
+  - \`roi\`: Return on investment (Revenue / Cost).
   - \`prev_*\`: Previous period values for period-over-period comparison.
 - \`dailyTrend\`: Daily transaction and reward trends. Identify patterns and anomalies.
 - \`heatmapData\`: Hourly activity patterns. Are there peak times? Dormant periods?
