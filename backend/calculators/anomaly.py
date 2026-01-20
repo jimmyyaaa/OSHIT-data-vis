@@ -151,7 +151,7 @@ def _detect_pos_anomalies_sql(engine, start_utc, end_utc, date_label):
     SELECT 
         to_user as address,
         COUNT(*) as count
-    FROM POS_Log
+    FROM shit_pos_rewards
     WHERE block_time_dt >= :start AND block_time_dt < :end
     GROUP BY to_user
     HAVING count > 1
@@ -182,11 +182,11 @@ def _detect_staking_anomalies_sql(engine, start_utc, end_utc, date_label):
     """使用 SQL 检测 Staking 异常"""
     query = """
     SELECT 
-        user_address as address,
+        to_user as address,
         COUNT(*) as count
-    FROM staking_reward_log
+    FROM shit_staking_rewards
     WHERE block_time_dt >= :start AND block_time_dt < :end
-    GROUP BY user_address
+    GROUP BY to_user
     HAVING count > 1
     """
     

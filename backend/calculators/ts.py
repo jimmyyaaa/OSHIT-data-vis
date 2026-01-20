@@ -1,290 +1,240 @@
 """
-TS 数据计算模块
-计算 TS 交易相关的指标、日数据和用户排行
-纯函数式实现 - 直接接收 df_current 和 df_prev
+TS 数据计算模块 (SQL 版)
+直接从数据库执行聚合逻辑，不再拉取原始日志到内存。
 """
-from typing import Dict, Any, List, Optional
 import pandas as pd
-import numpy as np
+import logging
+import traceback
+from typing import Dict, Any, List, Optional
+from sqlalchemy import text
+from utils.db_loader import get_db_engine
 
+logger = logging.getLogger(__name__)
 
-TIMESTAMP_COL = 'Timestamp(UTC+8)'
-
-# TS_Category 分类
-TS_NORMAL = 0
-TS_ONE_REF = 1
-TS_TWO_REF = 2
-TS_LUCKY_DRAW = 3
-
-
-def calculate_ts(
-    df_log_current: pd.DataFrame,
-    df_log_prev: pd.DataFrame,
-    df_price_current: Optional[pd.DataFrame] = None,
-    df_price_prev: Optional[pd.DataFrame] = None
-) -> Dict[str, Any]:
+def calculate_ts_sql(start_date: str, end_date: str) -> Dict[str, Any]:
     """
-    计算 TS 数据（纯函数式）
+    计算 TS 数据 (完全基于 SQL 聚合)
     
     Args:
-        df_log_current: 当前周期的 TS_Log
-        df_log_prev: 前一周期的 TS_Log
-        df_price_current: 当前周期的 SHIT_Price_Log（可选）
-        df_price_prev: 前一周期的 SHIT_Price_Log（可选）
-    
+        start_date: 开始日期 (YYYY-MM-DD)
+        end_date: 结束日期 (YYYY-MM-DD)
+        
     Returns:
         包含 metrics, dailyData, topUsers 的字典
     """
-    # 处理空DataFrame
-    if df_price_current is None:
-        df_price_current = pd.DataFrame()
-    if df_price_prev is None:
-        df_price_prev = pd.DataFrame()
-    
-    # 计算平均价格
-    avg_price_current = _calculate_avg_price(df_price_current)
-    avg_price_prev = _calculate_avg_price(df_price_prev)
-    
-    # 计算指标
-    metrics = _compute_metrics(
-        df_log_current, df_log_prev,
-        avg_price_current, avg_price_prev
-    )
-    
-    # 计算日数据
-    daily_data = _calculate_daily_data(df_log_current)
-    
-    # 计算用户排行
-    top_users = _calculate_top_users(df_log_current)
-    
-    return {
-        'metrics': metrics,
-        'dailyData': daily_data,
-        'topUsers': top_users
-    }
+    engine = get_db_engine()
+    if engine is None:
+        return _get_empty_response()
 
+    try:
+        # 1. 计算日期边界 (TS 使用 UTC+8 8:00am 作为换日点)
+        # 对应 UTC 0:00am (数据库存储的是 UTC)
+        current_start = pd.to_datetime(start_date)
+        current_end = pd.to_datetime(end_date) + pd.Timedelta(days=1)
+        
+        # 环比周期
+        period_days = (current_end - current_start).days
+        prev_start = current_start - pd.Timedelta(days=period_days)
+        prev_end = current_start
 
-def _compute_metrics(
-    df_log_current: pd.DataFrame,
-    df_log_prev: pd.DataFrame,
-    avg_price_current: float = 1.0,
-    avg_price_prev: float = 1.0
-) -> Dict[str, Any]:
-    """计算当前周期和前一周期的指标及 Delta"""
+        # 2. 获取平均价格 (SQL)
+        avg_price_current = _fetch_avg_price(engine, current_start, current_end)
+        avg_price_prev = _fetch_avg_price(engine, prev_start, prev_end)
+
+        # 3. 计算本期和上期的核心指标 (SQL 聚合)
+        metrics_current = _fetch_period_metrics_sql(engine, current_start, current_end, avg_price_current)
+        metrics_prev = _fetch_period_metrics_sql(engine, prev_start, prev_end, avg_price_prev)
+
+        # 4. 计算综合指标和 Delta
+        final_metrics = _merge_metrics(metrics_current, metrics_prev)
+
+        # 5. 获取日数据 (SQL)
+        daily_data = _fetch_daily_data_sql(engine, current_start, current_end)
+
+        # 6. 获取前10大户 (SQL)
+        top_users = _fetch_top_users_sql(engine, current_start, current_end)
+
+        return {
+            'metrics': final_metrics,
+            'dailyData': daily_data,
+            'topUsers': top_users
+        }
+    except Exception as e:
+        logger.error(f"SQL 计算 TS 数据失败: {str(e)}\n{traceback.format_exc()}")
+        return _get_empty_response()
+
+def _fetch_avg_price(engine, start_utc, end_utc) -> float:
+    """从数据库计算平均价格"""
+    query = """
+    SELECT AVG(price) as avg_price 
+    FROM shit_price_history 
+    WHERE timestamp_utc >= :start AND timestamp_utc < :end
+    """
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text(query), {
+                "start": start_utc.strftime('%Y-%m-%d %H:%M:%S'),
+                "end": end_utc.strftime('%Y-%m-%d %H:%M:%S')
+            }).fetchone()
+            return float(result[0]) if result and result[0] else 1.0
+    except Exception:
+        return 1.0
+
+def _fetch_period_metrics_sql(engine, start_utc, end_utc, avg_price: float) -> Dict[str, float]:
+    """单周期 SQL 聚合指标计算"""
+    # 核心 SQL: 一次性聚合所有基础计数和总和
+    query = """
+    SELECT
+        COUNT(CASE WHEN amount IN (500, 1500) THEN 1 END) as tsClaim,
+        SUM(amount) as totalAmount,
+        COUNT(DISTINCT CASE WHEN amount IN (500, 1500) THEN to_user END) as uniqueAddresses,
+        COUNT(CASE WHEN amount NOT IN (500, 1500, 50, 150, 25, 75) THEN 1 END) as luckyDraws,
+        SUM(CASE WHEN amount NOT IN (500, 1500, 50, 150, 25, 75) THEN amount ELSE 0 END) as luckyDrawAmount,
+        COUNT(DISTINCT CASE WHEN amount NOT IN (500, 1500, 50, 150, 25, 75) THEN to_user END) as luckyDrawAddresses,
+        COUNT(CASE WHEN amount IN (50, 150) THEN 1 END) as ref1Count,
+        COUNT(CASE WHEN amount IN (25, 75) THEN 1 END) as ref2Count,
+        SUM(SolSentToTreasury) as revenue,
+        COUNT(*) as totalTx
+    FROM take_a_SHIT
+    WHERE block_time_dt >= :start AND block_time_dt < :end
+    """
     
-    # 使用传入的价格参数
-    # 当前周期指标
-    metrics_current = _compute_period_metrics(df_log_current, avg_price_current)
-    
-    # 前一周期指标
-    metrics_prev = _compute_period_metrics(df_log_prev, avg_price_prev)
-    
-    # 计算 Delta（百分比）
-    def calc_delta(current: float, prev: float) -> Optional[float]:
-        if prev <= 0:
-            return None
-        return (current - prev) / prev * 100
-    
+    # 子查询: 计算平均时间间隔 (使用窗口函数)
+    interval_query = """
+    SELECT AVG(diff) / 60 as avg_interval
+    FROM (
+        SELECT 
+            TIMESTAMPDIFF(SECOND, LAG(block_time_dt) OVER (PARTITION BY to_user ORDER BY block_time_dt), block_time_dt) as diff
+        FROM take_a_SHIT
+        WHERE block_time_dt >= :start AND block_time_dt < :end
+    ) t
+    WHERE diff IS NOT NULL
+    """
+
+    try:
+        params = {
+            "start": start_utc.strftime('%Y-%m-%d %H:%M:%S'),
+            "end": end_utc.strftime('%Y-%m-%d %H:%M:%S')
+        }
+        with engine.connect() as conn:
+            row = conn.execute(text(query), params).fetchone()
+            interval_row = conn.execute(text(interval_query), params).fetchone()
+            
+            ts_claim = int(row[0] or 0)
+            total_amount = float(row[1] or 0.0)
+            unique_addresses = int(row[2] or 0)
+            lucky_draws = int(row[3] or 0)
+            lucky_draw_amount = float(row[4] or 0.0)
+            lucky_draw_addresses = int(row[5] or 0)
+            ref1 = int(row[6] or 0)
+            ref2 = int(row[7] or 0)
+            revenue = float(row[8] or 0.0)
+            total_tx = int(row[9] or 0)
+            avg_interval = float(interval_row[0] or 0.0)
+            
+            # 计算衍生指标 (层级逻辑: ref1 包含 ref2, tsClaim 包含 ref1)
+            two_ref_tx = ref2
+            one_ref_tx = ref1 - ref2
+            wolf_tx = ts_claim - ref1
+            
+            shit_cost = total_amount * avg_price
+            roi = (revenue / shit_cost) if shit_cost > 0 else 0.0
+            
+            return {
+                'totalTx': total_tx,
+                'tsClaim': ts_claim,
+                'totalAmount': total_amount,
+                'uniqueAddresses': unique_addresses,
+                'meanClaims': (ts_claim / unique_addresses) if unique_addresses > 0 else 0.0,
+                'medianClaims': 0.0, # 中位数以后考虑单独小查询，性能开销大
+                'avgInterval': avg_interval,
+                'wolfTx': wolf_tx,
+                'oneRefTx': one_ref_tx,
+                'twoRefTx': two_ref_tx,
+                'luckyDraws': lucky_draws,
+                'luckyDrawAmount': lucky_draw_amount,
+                'luckyDrawAddresses': lucky_draw_addresses,
+                'revenue': revenue,
+                'shitCost': shit_cost,
+                'roi': roi
+            }
+    except Exception as e:
+        logger.error(f"SQL 获取周期指标失败: {e}")
+        return {}
+
+def _fetch_daily_data_sql(engine, start_utc, end_utc) -> List[Dict[str, Any]]:
+    """日数据 SQL 聚合"""
+    query = """
+    SELECT 
+        DATE(block_time_dt) as date,
+        COUNT(*) as txCount,
+        SUM(amount) as shitSent,
+        SUM(SolSentToTreasury) as solReceived
+    FROM take_a_SHIT
+    WHERE block_time_dt >= :start AND block_time_dt < :end
+    GROUP BY date
+    ORDER BY date
+    """
+    try:
+        with engine.connect() as conn:
+            df = pd.read_sql(text(query), conn, params={
+                "start": start_utc.strftime('%Y-%m-%d %H:%M:%S'),
+                "end": end_utc.strftime('%Y-%m-%d %H:%M:%S')
+            })
+            if df.empty: return []
+            df['date'] = df['date'].astype(str)
+            return df.to_dict('records')
+    except Exception:
+        return []
+
+def _fetch_top_users_sql(engine, start_utc, end_utc) -> List[Dict[str, Any]]:
+    """前10大户 SQL 聚合"""
+    query = """
+    SELECT 
+        to_user as fullAddress,
+        SUM(amount) as shitSent,
+        COUNT(*) as txCount
+    FROM take_a_SHIT
+    WHERE block_time_dt >= :start AND block_time_dt < :end
+        AND amount IN (500, 1500)
+    GROUP BY to_user
+    ORDER BY shitSent DESC
+    LIMIT 10
+    """
+    try:
+        with engine.connect() as conn:
+            df = pd.read_sql(text(query), conn, params={
+                "start": start_utc.strftime('%Y-%m-%d %H:%M:%S'),
+                "end": end_utc.strftime('%Y-%m-%d %H:%M:%S')
+            })
+            if df.empty: return []
+            df['address'] = df['fullAddress'].apply(lambda x: f"{x[:4]}...{x[-4:]}")
+            return df.to_dict('records')
+    except Exception:
+        return []
+
+def _merge_metrics(current: Dict[str, Any], prev: Dict[str, Any]) -> Dict[str, Any]:
+    """合并本期和环比指标并计算 Delta"""
     result = {}
     
-    # Current
-    for key, val in metrics_current.items():
-        result[key + 'Current'] = val
-    
-    # Previous
-    for key, val in metrics_prev.items():
-        result[key + 'Prev'] = val
-    
-    # Delta
-    for key in metrics_current.keys():
-        result[key + 'Delta'] = calc_delta(metrics_current[key], metrics_prev[key])
-    
+    def calc_delta(curr_val, prev_val):
+        if prev_val is None or prev_val <= 0: return None
+        return (curr_val - prev_val) / prev_val * 100
+
+    keys = current.keys() if current else prev.keys()
+    for key in keys:
+        curr_val = current.get(key, 0)
+        prev_val = prev.get(key, 0)
+        
+        result[f"{key}Current"] = curr_val
+        result[f"{key}Prev"] = prev_val
+        result[f"{key}Delta"] = calc_delta(curr_val, prev_val)
+        
     return result
 
-
-def _compute_period_metrics(
-    df_ts: pd.DataFrame,
-    avg_price: float
-) -> Dict[str, float]:
-    """计算单个周期的所有指标"""
-    
-    if len(df_ts) == 0:
-        return {
-            'totalTx': 0.0,
-            'tsClaim': 0.0,
-            'totalAmount': 0.0,
-            'uniqueAddresses': 0.0,
-            'meanClaims': 0.0,
-            'medianClaims': 0.0,
-            'avgInterval': 0.0,
-            'wolfTx': 0.0,
-            'oneRefTx': 0.0,
-            'twoRefTx': 0.0,
-            'luckyDraws': 0.0,
-            'luckyDrawAmount': 0.0,
-            'luckyDrawAddresses': 0.0,
-            'revenue': 0.0,
-            'shitCost': 0.0,
-            'roi': 0.0,
-        }
-    
-    # 基础交易指标
-    total_tx = len(df_ts)
-    ts_claim = len(df_ts[df_ts['TS_Category'] == TS_NORMAL])
-    total_amount = float(df_ts['SHIT Sent'].sum())
-    unique_addresses = len(df_ts[df_ts['TS_Category'] == TS_NORMAL]['Receiver Address'].unique())
-    
-    # 按地址统计
-    ts_normal = df_ts[df_ts['TS_Category'] == TS_NORMAL]
-    addr_claims = ts_normal.groupby('Receiver Address').size()
-    
-    mean_claims = float(addr_claims.mean()) if len(addr_claims) > 0 else 0.0
-    median_claims = float(addr_claims.median()) if len(addr_claims) > 0 else 0.0
-    
-    # 平均时间间隔（分钟）
-    avg_interval = _calculate_avg_interval(df_ts)
-    
-    # 幸运抽奖
-    lucky_draws = len(df_ts[df_ts['TS_Category'] == TS_LUCKY_DRAW])
-    lucky_draw_amount = float(df_ts[df_ts['TS_Category'] == TS_LUCKY_DRAW]['SHIT Sent'].sum())
-    lucky_draw_addresses = len(df_ts[df_ts['TS_Category'] == TS_LUCKY_DRAW]['Receiver Address'].unique())
-    
-    # Reference 分类 - 有包含关系：
-    # wolfTx = Category == 0
-    # twoRefTx = Category == 2
-    # oneRefTx = Category == 1 的数量 - Category == 2 的数量（因为每个2都对应一个1）
-    level2_count = len(df_ts[df_ts['TS_Category'] == TS_TWO_REF])
-    level1_count = len(df_ts[df_ts['TS_Category'] == TS_ONE_REF]) - level2_count
-    level0_count = len(df_ts[df_ts['TS_Category'] == TS_NORMAL]) - level1_count - level2_count
-    
-    wolf_tx = float(level0_count)
-    one_ref_tx = float(level1_count)
-    two_ref_tx = float(level2_count)
-    
-    # 收入和成本
-    revenue = float(df_ts['SOL_Received'].sum()) if 'SOL_Received' in df_ts.columns else 0.0
-    shit_cost = total_amount * avg_price
-    roi = (revenue / shit_cost) if shit_cost > 0 else 0.0
-    
+def _get_empty_response():
     return {
-        'totalTx': int(total_tx),
-        'tsClaim': int(ts_claim),
-        'totalAmount': float(total_amount),
-        'uniqueAddresses': int(unique_addresses),
-        'meanClaims': float(mean_claims),
-        'medianClaims': float(median_claims),
-        'avgInterval': float(avg_interval),
-        'wolfTx': int(wolf_tx),
-        'oneRefTx': int(one_ref_tx),
-        'twoRefTx': int(two_ref_tx),
-        'luckyDraws': int(lucky_draws),
-        'luckyDrawAmount': float(lucky_draw_amount),
-        'luckyDrawAddresses': int(lucky_draw_addresses),
-        'revenue': float(revenue),
-        'shitCost': float(shit_cost),
-        'roi': float(roi),
+        'metrics': {},
+        'dailyData': [],
+        'topUsers': []
     }
-
-
-def _calculate_avg_interval(df: pd.DataFrame) -> float:
-    """计算平均交易间隔（分钟）"""
-    if len(df) == 0:
-        return 0.0
-    
-    # 按地址排序，计算时间差 - 纯向量化，无循环
-    df_sorted = df.sort_values(['Receiver Address', TIMESTAMP_COL])
-    
-    # 按地址计算时间差
-    diffs = df_sorted.groupby('Receiver Address')[TIMESTAMP_COL].diff().dt.total_seconds() / 60
-    
-    # 过滤出有效的时间差（非 NaN）并计算平均值
-    valid_diffs = diffs[diffs.notna()]
-    
-    return float(valid_diffs.mean()) if len(valid_diffs) > 0 else 0.0
-
-
-def _calculate_daily_data(
-    df_ts: pd.DataFrame
-) -> List[Dict[str, Any]]:
-    """计算日数据（使用 8am 边界）"""
-    
-    if len(df_ts) == 0:
-        return []
-    
-    # 复制并添加日期列
-    df = df_ts.copy()
-    # 使用向量化操作计算交易日 (以 8am 为边界)
-    # (ts - 8h).date() 会将 00:00-07:59 的交易归入前一天
-    df['date'] = (df[TIMESTAMP_COL] - pd.Timedelta(hours=8)).dt.strftime('%Y-%m-%d')
-    
-    # 按日期聚合
-    daily = df.groupby('date').agg({
-        TIMESTAMP_COL: 'count',  # txCount
-        'SHIT Sent': 'sum',       # shitSent
-        'SOL_Received': 'sum'     # solReceived
-    }).reset_index()
-    
-    # 重命名列 - 使用 rename 避免多级列问题
-    daily = daily.rename(columns={
-        TIMESTAMP_COL: 'txCount',
-        'SHIT Sent': 'shitSent',
-        'SOL_Received': 'solReceived'
-    })
-    
-    return daily[['date', 'txCount', 'shitSent', 'solReceived']].astype({
-        'txCount': 'int',
-        'shitSent': 'float',
-        'solReceived': 'float'
-    }).to_dict('records')
-
-
-def _calculate_top_users(
-    df_ts: pd.DataFrame,
-    top_n: int = 10
-) -> List[Dict[str, Any]]:
-    """计算用户交易排行 - 仅统计 TS_Category == 0 (Normal Claims)"""
-    
-    if len(df_ts) == 0:
-        return []
-    
-    # 只保留 TS_Category == 0 的交易
-    df_normal = df_ts[df_ts['TS_Category'] == TS_NORMAL]
-    
-    if len(df_normal) == 0:
-        return []
-    
-    # 按地址聚合交易数和总金额 - 分别处理
-    user_shit = df_normal.groupby('Receiver Address')['SHIT Sent'].sum()
-    user_tx = df_normal.groupby('Receiver Address').size()
-    
-    # 合并结果
-    user_stats = pd.DataFrame({
-        'fullAddress': user_shit.index,
-        'shitSent': user_shit.values,
-        'txCount': user_tx.values
-    })
-    
-    # 排序并取前 N
-    user_stats = user_stats.sort_values('shitSent', ascending=False).head(top_n).reset_index(drop=True)
-    
-    # 添加缩写地址
-    user_stats['address'] = user_stats['fullAddress'].apply(
-        lambda addr: f"{addr[:4]}...{addr[-4:]}"
-    )
-    
-    return user_stats[['address', 'fullAddress', 'shitSent', 'txCount']].astype({
-        'shitSent': 'float',
-        'txCount': 'int'
-    }).to_dict('records')
-
-
-def _calculate_avg_price(df_price: pd.DataFrame) -> float:
-    """计算平均SHIT价格"""
-    if len(df_price) == 0 or 'Price' not in df_price.columns:
-        return 1.0
-    
-    prices = df_price['Price'].dropna()
-    if len(prices) == 0:
-        return 1.0
-    
-    return float(prices.mean())

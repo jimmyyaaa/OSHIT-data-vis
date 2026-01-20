@@ -2,32 +2,49 @@
 
 ## 🏗️ Architecture Overview
 
-**Full-stack data visualization platform** with Python FastAPI backend and React/TypeScript frontend. Backend serves calculated metrics from Google Sheets data, frontend renders interactive ECharts visualizations.
+**Full-stack data visualization platform** with Python FastAPI backend and React/TypeScript frontend. Backend serves calculated metrics from RDS (MySQL) data, frontend renders interactive ECharts visualizations.
 
 **Key Components:**
-- `backend/`: FastAPI server with pandas calculations from Google Sheets
+- `backend/`: FastAPI server with SQL-native aggregation (formerly pandas from Google Sheets)
 - `shadcn-frontend/`: React/TypeScript dashboard with shadcn/ui + ECharts
-- `frontend/`: Legacy Ant Design version (being migrated to shadcn)
+- `frontend/`: Legacy Ant Design version (deprecated)
+
+## 🗄️ Database Schema (RDS)
+
+All calculations should prioritize **SQL-native aggregation** to minimize memory consumption.
+
+### Core Tables
+
+| Table Name | Description | Key Columns |
+| :--- | :--- | :--- |
+| `take_a_SHIT` | TS (Trading System) Logs | `block_time_dt`, `to_user`, `amount`, `SolSentToTreasury` |
+| `shit_pos_rewards` | POS Reward Logs | `block_time_dt`, `to_user`, `amount`, `SolSentToTreasury` |
+| `SHIT_code` | Gift Code / ShitCode Logs | `block_time_dt`, `to_user`, `amount`, `SolSentToTreasury` |
+| `shit_staking_rewards`| Staking Reward Logs | `block_time_dt`, `to_user`, `amount`, `SolSentToTreasury` |
+| `shit_staking_events` | Staking Activities | `block_time_dt`, `user_address`, `amount`, `event_type` (STAKE/UNSTAKE) |
+| `liq_pool_activity` | DeFi Liquidity Logs | `timestamp_utc`, `from_address`, `activity`, `shit_change`, `usdt_change` |
+| `shit_price_history` | Token Price Data | `timestamp_utc`, `timestamp_utc8`, `price` |
+
+### SQL Aggregation Pattern (Example)
+```sql
+-- Efficient metric calculation without pulling 100k rows to memory
+SELECT 
+    COUNT(*) as totalTx,
+    SUM(amount) as totalVolume,
+    COUNT(DISTINCT to_user) as uniqueUsers
+FROM take_a_SHIT
+WHERE block_time_dt >= :start AND block_time_dt < :end
+```
 
 ## 📊 Data Flow Patterns
 
 ### Backend Data Pipeline
 ```python
-# 1. Load from Google Sheets to pandas DataFrames
-df_ts = data_cache.data.get('TS_Log')
+# 1. SQL Native Calculation (Recommended)
+result = calculate_ts_sql(start_date, end_date)
 
-# 2. Apply date boundaries (varies by section)
-ts_start = pd.to_datetime(request.start_date).replace(hour=8, minute=0)  # TS uses 8am
-pos_start = pd.to_datetime(request.start_date).replace(hour=12, minute=0)  # POS uses 12pm
-
-# 3. Calculate metrics with Current/Previous/Delta pattern
-result = {
-    'metrics': {
-        'totalStakeCurrent': current_value,
-        'totalStakePrev': prev_value,
-        'totalStakeDelta': delta_percentage
-    }
-}
+# 2. Apply UTC-based boundaries (Internal SQL matching Beijing Time)
+# TS: UTC 00:00 (BJ 08:00), POS: UTC 04:00 (BJ 12:00)
 ```
 
 ### Frontend Data Fetching

@@ -27,7 +27,7 @@ from .schemas import (
 router = APIRouter(prefix="/calculate", tags=["calculate"])
 
 @router.post("/staking", response_model=StakingCalculateResponse)
-async def calculate_staking(request: DateRangeRequest):
+def calculate_staking(request: DateRangeRequest):
     """
     计算 Staking 数据
     
@@ -92,20 +92,13 @@ async def calculate_staking(request: DateRangeRequest):
 # ============================================
 
 @router.post("/ts", response_model=TSCalculateResponse)
-async def calculate_ts(request: DateRangeRequest):
+def calculate_ts(request: DateRangeRequest):
     """
-    计算 TS 数据
-    
-    Args:
-        request: 包含 start_date 和 end_date 的请求
-    
-    Returns:
-        TSCalculateResponse: 包含指标、日数据、热力图、用户排行和重复领取排行
+    计算 TS 数据 (SQL 直接聚合模式)
     """
     try:
         from data_cache import data_cache
-        from calculators.ts import calculate_ts as ts_calc
-        from utils.db_loader import load_ts_log_from_db, load_price_history_from_db
+        from calculators.ts import calculate_ts_sql
         
         if not data_cache.is_cached:
             raise HTTPException(
@@ -113,55 +106,22 @@ async def calculate_ts(request: DateRangeRequest):
                 detail="数据未缓存，请先调用 /loadData"
             )
         
-        # 日期范围计算（UTC+8 08:00）
-        timestamp_col = 'Timestamp(UTC+8)'
-        current_start = pd.to_datetime(request.start_date).replace(hour=8, minute=0, second=0, microsecond=0)
-        current_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-        
-        period_length = (pd.to_datetime(request.end_date) - pd.to_datetime(request.start_date)).days + 1
-        prev_start = current_start - pd.Timedelta(days=period_length)
-        prev_end = current_start
-        
-        # 从数据库按需加载 TS_Log 数据 (涵盖当前和前一周期)
-        logger.info(f"正在从数据库加载 TS_Log: {prev_start} 到 {current_end}")
-        df_ts_log_all = load_ts_log_from_db(prev_start, current_end)
-        
-        # 从数据库按需加载价格数据
-        logger.info(f"正在从数据库加载 Price History")
-        price_start_bound = prev_start.replace(hour=0, minute=0)
-        df_price_all = load_price_history_from_db(price_start_bound, current_end)
-        
-        if df_ts_log_all.empty:
-            logger.warning("未找到 TS_Log 数据")
-            df_log_current = pd.DataFrame()
-            df_log_prev = pd.DataFrame()
-        else:
-            # 分割TS_Log数据
-            df_log_current = df_ts_log_all[(df_ts_log_all[timestamp_col] >= current_start) & (df_ts_log_all[timestamp_col] < current_end)].copy()
-            df_log_prev = df_ts_log_all[(df_ts_log_all[timestamp_col] >= prev_start) & (df_ts_log_all[timestamp_col] < current_start)].copy()
-        
-        # 分割SHIT_Price_Log数据（使用自然日边界）
-        price_start = pd.to_datetime(request.start_date).replace(hour=0, minute=0, second=0, microsecond=0)
-        price_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        prev_price_start = (pd.to_datetime(request.start_date) - pd.Timedelta(days=period_length)).replace(hour=0, minute=0, second=0, microsecond=0)
-        prev_price_end = price_start
-        
-        df_price_current = pd.DataFrame()
-        df_price_prev = pd.DataFrame()
-        if not df_price_all.empty:
-            df_price_current = df_price_all[(df_price_all[timestamp_col] >= price_start) & (df_price_all[timestamp_col] < price_end)].copy()
-            df_price_prev = df_price_all[(df_price_all[timestamp_col] >= prev_price_start) & (df_price_all[timestamp_col] < prev_price_end)].copy()
-        
-        # 调用纯函数
-        result = ts_calc(df_log_current, df_log_prev, df_price_current, df_price_prev)
+        # 直接调用 SQL 计算逻辑
+        result = calculate_ts_sql(request.start_date, request.end_date)
         
         return TSCalculateResponse(
             metrics=TSMetrics(**result['metrics']),
             dailyData=[DailyTSDataEntry(**item) for item in result['dailyData']],
-            heatmapData=HeatmapData(dates=[], hours=[], data=[]),  # TODO: 需要从结果中提取或生成热力图
+            heatmapData=HeatmapData(dates=[], hours=[], data=[]), 
             topUsers=[TopTSUser(**item) for item in result['topUsers']],
-            repeatRanking=[]  # TODO: 需要从结果中提取或生成
+            repeatRanking=[]  
+        )
+    
+    except Exception as e:
+        logger.error(f"[TS Error] {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         )
     
     except HTTPException:
@@ -179,7 +139,7 @@ async def calculate_ts(request: DateRangeRequest):
 # ============================================
 
 @router.post("/pos", response_model=POSCalculateResponse)
-async def calculate_pos(request: DateRangeRequest):
+def calculate_pos(request: DateRangeRequest):
     """
     计算 POS 数据
     
@@ -242,7 +202,7 @@ async def calculate_pos(request: DateRangeRequest):
 # ============================================
 
 @router.post("/shitcode", response_model=ShitCodeCalculateResponse)
-async def calculate_shitcode(request: DateRangeRequest):
+def calculate_shitcode(request: DateRangeRequest):
     """
     计算 ShitCode 数据
     
@@ -303,7 +263,7 @@ async def calculate_shitcode(request: DateRangeRequest):
 # ============================================
 
 @router.post("/revenue", response_model=RevenueCalculateResponse)
-async def calculate_revenue(request: DateRangeRequest):
+def calculate_revenue(request: DateRangeRequest):
     """
     计算 Revenue 数据
     
@@ -396,7 +356,7 @@ async def calculate_revenue(request: DateRangeRequest):
 # ============================================
 
 @router.post("/defi", response_model=DeFiCalculateResponse)
-async def calculate_defi(request: DateRangeRequest):
+def calculate_defi(request: DateRangeRequest):
     """
     计算 DeFi 数据
     
@@ -465,7 +425,7 @@ async def calculate_defi(request: DateRangeRequest):
 # ============================================
 
 @router.post("/anomalies", response_model=AnomalyCalculateResponse)
-async def calculate_anomalies(request: SingleDateRequest):
+def calculate_anomalies(request: SingleDateRequest):
     """
     计算特定日期的异常行为检测
     

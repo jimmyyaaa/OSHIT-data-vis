@@ -8,7 +8,6 @@ import pickle
 from datetime import datetime
 from typing import Optional, Dict, Any
 import pandas as pd
-from utils.data_loader import load_sheet_data
 
 
 class DataCache:
@@ -149,78 +148,67 @@ class DataCache:
 
     async def load_data(self, force_refresh: bool = False) -> Dict[str, pd.DataFrame]:
         """
-        加载数据的主逻辑
+        初始化系统加载状态
         
         优先级：
-        1. force_refresh=True  → 从Google Sheet重新拉取
-        2. 内存缓存有数据     → 直接返回（最快）
-        3. 磁盘缓存有数据     → 从磁盘加载到内存
-        4. 都没有            → 从Google Sheet拉取
+        1. force_refresh=True  → 强制重新初始化
+        2. 内存状态已初始化     → 直接返回
+        3. 磁盘元数据存在       → 从磁盘恢复状态
+        4. 都没有              → 执行初始化
         
         Args:
-            force_refresh: 是否强制刷新（忽略所有缓存）
+            force_refresh: 是否强制重置状态
         
         Returns:
-            加载的数据字典 {sheet_name: DataFrame}
+            加载的数据字典 (当前为空，仅保持接口兼容)
         """
-        # 强制刷新：清空所有缓存并重新拉取
+        # 强制刷新：清空并重新初始化
         if force_refresh:
-            print("🔄 强制刷新：清空缓存，从 Google Sheet 重新加载...")
+            print("🔄 强制刷新：重置系统加载状态...")
             self._data = None
             self._last_update = None
             return await self._fetch_and_cache()
         
         # 检查内存缓存
         if self.is_cached and self._data is not None:
-            print("⚡ 使用内存缓存（最快）")
+            print("⚡ 系统已加载 (内存)")
             return self._data
         
         # 检查磁盘缓存
         if self.has_disk_cache:
-            print("⚡ 从磁盘加载缓存到内存...")
+            print("⚡ 从磁盘恢复加载状态...")
             disk_data = self._load_from_disk()
             if disk_data is not None:
                 self._data = disk_data
                 return self._data
         
-        # 都没有：从 Google Sheet 拉取
-        print("🔄 缓存不存在，从 Google Sheet 拉取数据...")
+        # 都没有：执行加载
+        print("🔄 首次启动，执行系统初始化...")
         return await self._fetch_and_cache()
 
     async def _fetch_and_cache(self) -> Dict[str, pd.DataFrame]:
         """
-        从 Google Sheet 拉取数据，更新内存和磁盘缓存
-        
-        内存缓存存 DataFrame，磁盘缓存存 JSON
+        初始化系统状态
+        由于目前已全部迁移至 SQL，此函数仅用于重置加载状态
         
         Returns:
-            加载的数据字典 {sheet_name: DataFrame}
-        
-        Raises:
-            Exception: 数据加载失败时抛出异常
+            空数据字典
         """
         try:
-            sheet_names = [
-            ]
+            print("🔄 初始化系统状态 (SQL 模式)...")
             
-            # 从 Google Sheet 加载数据（返回 DataFrame）
-            print(f"⏳ 从 Google Sheet 加载数据: {sheet_names}...")
-            data = load_sheet_data(sheet_names)
+            data = {}
             
-            # 数据清洗（处理日期时间列）
-            # 在缓存时就转化时间戳，避免计算时重复转化
-            data = self._convert_timestamps(data)
-            
-            # 更新内存缓存（存 DataFrame）
+            # 更新内存缓存
             self._data = data
             self._last_update = datetime.now()
             
-            # 保存到磁盘缓存（转为 JSON）
+            # 保存元数据到磁盘
             self._save_to_disk(data)
             
             return data
         except Exception as e:
-            raise Exception(f"Failed to load data from Google Sheet: {str(e)}")
+            raise Exception(f"Failed to initialize data state: {str(e)}")
 
     def clear_all_cache(self) -> None:
         """清空所有缓存（内存 + 磁盘）"""
