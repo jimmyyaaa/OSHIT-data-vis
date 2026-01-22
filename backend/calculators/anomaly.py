@@ -47,10 +47,10 @@ def calculate_anomalies(date_str: str) -> Dict[str, Any]:
     pos_anomalies = _detect_pos_anomalies_sql(engine, pos_start_utc, pos_end_utc, date_str)
     anomalies.extend(pos_anomalies)
     
-    # 3. Staking 异常检测 (00:00 AM 边界)
-    # Staking 周期: T 00:00 到 T+1 00:00 (UTC+8)
-    # 对应 UTC: T-1 16:00 到 T 16:00
-    staking_start_utc = base_dt - pd.Timedelta(hours=8)
+    # 3. Staking 异常检测 (12:00 PM 边界)
+    # Staking 周期: T 12:00 到 T+1 12:00 (UTC+8)
+    # 对应 UTC: T 04:00 到 T+1 04:00
+    staking_start_utc = base_dt + pd.Timedelta(hours=4)
     staking_end_utc = staking_start_utc + pd.Timedelta(days=1)
     
     staking_anomalies = _detect_staking_anomalies_sql(engine, staking_start_utc, staking_end_utc, date_str)
@@ -72,8 +72,8 @@ def calculate_anomalies(date_str: str) -> Dict[str, Any]:
 def _detect_ts_anomalies_sql(engine, start_utc, end_utc, date_label):
     """使用 SQL 检测 TS 异常"""
     # SQL 逻辑：聚合 draw 次数和 claim 次数
-    # Category 0,1,2 是 Claim (500, 1500, 50, 150, 25, 75)
-    # 其他是 Draw
+    # TS 领取次数 (Claims): amount IN (500, 1500)
+    # 抽奖次数 (Draws): amount NOT IN (500, 1500, 50, 150, 25, 75)
     query = """
     SELECT 
         to_user as address,
@@ -84,9 +84,10 @@ def _detect_ts_anomalies_sql(engine, start_utc, end_utc, date_label):
     GROUP BY to_user
     HAVING 
         draws > 3 OR 
-        draws < 3 OR 
         claims > 20 OR
-        (draws = 3 AND claims < 20)
+        (claims < 5 AND draws >= 1) OR
+        (claims >= 5 AND claims < 10 AND draws >= 2) OR
+        (claims >= 10 AND claims < 20 AND draws = 3)
     """
     
     res = []
@@ -102,41 +103,43 @@ def _detect_ts_anomalies_sql(engine, start_utc, end_utc, date_label):
             claims = int(row['claims'])
             draws = int(row['draws'])
             
-            # 规则判定
+            # 1. 严重错误 (High Risk)
             if draws > 3:
                 res.append({
                     "date": date_label,
                     "address": addr,
                     "type": "TS_LUCKY_DRAW_OVER",
-                    "description": f"抽奖次数异常: {draws}次 (标准为3次)",
+                    "description": f"严重错误: 抽奖次数溢出 ({draws}次, 标准上限3次)",
                     "severity": "high",
                     "data": {"luckyDraws": draws, "claims": claims}
                 })
-            elif draws < 3:
-                res.append({
-                    "date": date_label,
-                    "address": addr,
-                    "type": "TS_LUCKY_DRAW_UNDER",
-                    "description": f"抽奖次数不足: {draws}次 (标准为3次)",
-                    "severity": "medium",
-                    "data": {"luckyDraws": draws, "claims": claims}
-                })
-            
+                # 严重错误优先，不再判定后续逻辑错误
+                continue
+
+            # 2. 次数超限 (Medium Risk)
             if claims > 20:
                 res.append({
                     "date": date_label,
                     "address": addr,
                     "type": "TS_OVER_CLAIM",
-                    "description": f"TS 领取次数过多: {claims}次 (上限20次)",
+                    "description": f"TS 领取次数超限: {claims}次 (标准上限20次)",
                     "severity": "medium",
                     "data": {"luckyDraws": draws, "claims": claims}
                 })
-            elif draws == 3 and claims < 20:
+
+            # 3. 抽奖逻辑错误 (Medium Risk) - 合并检测
+            is_logic_error = (
+                (claims < 5 and draws >= 1) or
+                (5 <= claims < 10 and draws >= 2) or
+                (10 <= claims < 20 and draws == 3)
+            )
+
+            if is_logic_error:
                 res.append({
                     "date": date_label,
                     "address": addr,
-                    "type": "TS_INCONSISTENT",
-                    "description": f"抽奖满额但领取不足: 抽奖3次，TS领取仅{claims}次",
+                    "type": "TS_LOGIC_ERROR",
+                    "description": f"抽奖逻辑不匹配: 领取{claims}次但抽奖{draws}次 (未达预期收益)",
                     "severity": "medium",
                     "data": {"luckyDraws": draws, "claims": claims}
                 })
@@ -171,7 +174,7 @@ def _detect_pos_anomalies_sql(engine, start_utc, end_utc, date_label):
                 "address": row['address'],
                 "type": "POS_DUPLICATE",
                 "description": f"POS 同日重复领取: {row['count']}次",
-                "severity": "medium",
+                "severity": "high",
                 "data": {"count": int(row['count'])}
             })
     except Exception as e:
@@ -204,7 +207,7 @@ def _detect_staking_anomalies_sql(engine, start_utc, end_utc, date_label):
                 "address": row['address'],
                 "type": "STAKING_DUPLICATE",
                 "description": f"质押奖励同日重复领取: {row['count']}次",
-                "severity": "medium",
+                "severity": "high",
                 "data": {"count": int(row['count'])}
             })
     except Exception as e:

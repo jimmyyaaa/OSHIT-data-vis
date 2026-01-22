@@ -97,9 +97,9 @@ export default function SectionPage() {
 |---------|----------|---------|
 | TS | 8:00 AM | Trading day starts at 8am |
 | POS | 12:00 PM | POS day starts at noon |
-| Staking | 00:00 AM | Standard midnight |
+| Staking | 12:00 PM | Staking day starts at noon |
 | ShitCode | 00:00 AM | Standard midnight |
-| Revenue | Per-source | TS=8am, POS=12pm, others=00:00 |
+| Revenue | Per-source | TS=8am, POS/Staking=12pm, others=00:00 |
 | DeFi | 00:00 AM | Standard midnight |
 
 ## 🔗 API Integration Patterns

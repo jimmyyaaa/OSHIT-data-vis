@@ -13,9 +13,8 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/contexts/LocaleContext";
 import { fetchAnomalyData, formatDate } from "@/services/dataService";
-import { SectionToolbar } from "@/components/SectionToolbar";
 import { StatisticCard } from "@/components/StatisticCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -123,65 +122,37 @@ export default function AnomalyPage() {
 
     const formatAnomalyDescription = (item: AnomalyDetail) => {
         const descriptions = t.anomaly.typeDescriptions as Record<string, string>;
-        if (!descriptions || !descriptions[item.type]) {
-            return item.description;
+
+        // 1. 优先查找本地语言包是否有该异常类型的翻译模板
+        if (descriptions && descriptions[item.type]) {
+            let template = descriptions[item.type];
+
+            // 执行模板变量替换 (如 {draws} -> 4)
+            if (item.data) {
+                Object.entries(item.data).forEach(([key, value]) => {
+                    // 兼容性处理: 后端的 luckyDraws 映射到模板中的 draws
+                    const templateKey = key === 'luckyDraws' ? 'draws' : key;
+                    template = template.replace(`{${templateKey}}`, String(value));
+                });
+            }
+            return template;
         }
 
-        let template = descriptions[item.type];
-
-        // 动态变量替换
-        if (item.data) {
-            Object.entries(item.data).forEach(([key, value]) => {
-                // 处理后端返回的字段名映射到模板变量
-                // 如 luckyDraws -> draws
-                const templateKey = key === 'luckyDraws' ? 'draws' : key;
-                template = template.replace(`{${templateKey}}`, String(value));
-            });
-        }
-
-        return template;
+        // 2. 如果语言包没有定义（可能是新加的类型），则退而求其次显示后端给的可读描述
+        return item.description || item.type;
     };
 
     return (
-        <div className="w-full h-full flex flex-col">
-            <SectionToolbar
-                title={t.sidebar.anomaly}
-                hideDatePicker={true} // 隐藏通用的 RangePicker
-            >
-                <div className="flex items-center gap-4">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                    "w-60 justify-start text-left font-normal",
-                                    !selectedDate && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {selectedDate ? format(selectedDate, "PPP") : <span>{t.anomaly.selectDate}</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                                mode="single"
-                                selected={selectedDate}
-                                onSelect={(date) => date && setSelectedDate(date)}
-                                initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
-                </div>
-            </SectionToolbar>
+        <div className="w-full h-full flex flex-col p-6 overflow-auto space-y-6">
+            {error && (
+                <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            )}
 
-            <div className="flex-1 overflow-auto p-6 space-y-6">
-                {error && (
-                    <Alert variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                )}
-
-                {/* Summary Cards */}
+            {/* Summary Section */}
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold tracking-tight">{t.anomaly.overview}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {loading ? (
                         Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
@@ -206,12 +177,38 @@ export default function AnomalyPage() {
                         </>
                     )}
                 </div>
+            </div>
 
-                {/* Data Table */}
+            {/* Detail Section */}
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold tracking-tight">{t.anomaly.detailTitle}</h2>
                 <Card>
                     <CardHeader className="pb-3 px-6 pt-6">
                         <div className="flex items-center justify-between">
-                            <CardTitle>{t.common.dataAnalysis}</CardTitle>
+                            <div className="flex items-center gap-4">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-60 justify-start text-left font-normal",
+                                                !selectedDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {selectedDate ? format(selectedDate, "PPP") : <span>{t.anomaly.selectDate}</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={selectedDate}
+                                            onSelect={(date) => date && setSelectedDate(date)}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -260,10 +257,10 @@ export default function AnomalyPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[100px] pl-6 text-center">{t.anomaly.severity}</TableHead>
-                                    <TableHead>{t.common.address}</TableHead>
-                                    <TableHead>{t.anomaly.type}</TableHead>
-                                    <TableHead className="max-w-[300px]">{t.anomaly.details}</TableHead>
+                                    <TableHead className="w-[120px] pl-6 text-center">{t.anomaly.severity}</TableHead>
+                                    <TableHead className="w-[180px]">{t.common.address}</TableHead>
+                                    <TableHead className="w-[200px]">{t.anomaly.type}</TableHead>
+                                    <TableHead className="min-w-[400px]">{t.anomaly.details}</TableHead>
                                     <TableHead className="text-right pr-6">{t.common.viewDetails}</TableHead>
                                 </TableRow>
                             </TableHeader>

@@ -20,7 +20,6 @@ interface SectionToolbarProps {
     isAISummaryOpen?: boolean;
     onToggleAISummary?: (isOpen: boolean) => void;
     isLoading?: boolean;
-    hideDatePicker?: boolean;
     children?: React.ReactNode;
 }
 
@@ -36,7 +35,6 @@ export function SectionToolbar({
     isAISummaryOpen = false,
     onToggleAISummary,
     isLoading = false,
-    hideDatePicker = false,
     children,
 }: SectionToolbarProps) {
     const { startDate, endDate, handleDateChange } = useDateRange();
@@ -95,37 +93,35 @@ export function SectionToolbar({
         <div className="flex items-center justify-between gap-4 px-4 py-2 bg-background border-b shrink-0">
             {/* 左侧：日期范围选择 */}
             <div className="flex items-center gap-2">
-                {!hideDatePicker && (
-                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-56">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                {dateRange?.from ? formatDate(dateRange.from) : ""} - {dateRange?.to ? formatDate(dateRange.to) : ""}
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-56">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {dateRange?.from ? formatDate(dateRange.from) : ""} - {dateRange?.to ? formatDate(dateRange.to) : ""}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-4" align="start">
+                        <div className="space-y-4">
+                            <CalendarComponent
+                                mode="range"
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                numberOfMonths={2}
+                                disabled={(date) =>
+                                    date > today || date < new Date(2025, 10, 1)
+                                }
+                                className="rounded-lg border"
+                            />
+                            <Button
+                                onClick={handleDateRangeSelect}
+                                className="w-full"
+                                size="sm"
+                            >
+                                {t.common.confirm}
                             </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-4" align="start">
-                            <div className="space-y-4">
-                                <CalendarComponent
-                                    mode="range"
-                                    selected={dateRange}
-                                    onSelect={setDateRange}
-                                    numberOfMonths={2}
-                                    disabled={(date) =>
-                                        date > today || date < new Date(2025, 10, 1)
-                                    }
-                                    className="rounded-lg border"
-                                />
-                                <Button
-                                    onClick={handleDateRangeSelect}
-                                    className="w-full"
-                                    size="sm"
-                                >
-                                    {t.common.confirm}
-                                </Button>
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-                )}
+                        </div>
+                    </PopoverContent>
+                </Popover>
                 {children}
             </div>
 

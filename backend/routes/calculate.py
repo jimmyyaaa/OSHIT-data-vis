@@ -48,10 +48,10 @@ def calculate_staking(request: DateRangeRequest):
                 detail="数据未缓存，请先调用 /loadData"
             )
         
-        # 日期范围计算（UTC+8 00:00）
+        # 日期范围计算（UTC+8 12:00）
         timestamp_col = 'Timestamp(UTC+8)'
-        current_start = pd.to_datetime(request.start_date).replace(hour=0, minute=0, second=0, microsecond=0)
-        current_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        current_start = pd.to_datetime(request.start_date).replace(hour=12, minute=0, second=0, microsecond=0)
+        current_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=12, minute=0, second=0, microsecond=0)
         
         period_length = (pd.to_datetime(request.end_date) - pd.to_datetime(request.start_date)).days + 1
         prev_start = current_start - pd.Timedelta(days=period_length)
@@ -313,9 +313,9 @@ def calculate_revenue(request: DateRangeRequest):
         df_pos_current = df_pos_all[(df_pos_all[timestamp_col] >= pos_start) & (df_pos_all[timestamp_col] < pos_end)].copy()
         df_pos_prev = df_pos_all[(df_pos_all[timestamp_col] >= pos_prev_start) & (df_pos_all[timestamp_col] < pos_start)].copy()
         
-        # Staking（00:00边界）
-        stake_start = pd.to_datetime(request.start_date).replace(hour=0, minute=0, second=0, microsecond=0)
-        stake_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        # Staking（12:00pm边界）
+        stake_start = pd.to_datetime(request.start_date).replace(hour=12, minute=0, second=0, microsecond=0)
+        stake_end = (pd.to_datetime(request.end_date) + pd.Timedelta(days=1)).replace(hour=12, minute=0, second=0, microsecond=0)
         stake_prev_start = stake_start - pd.Timedelta(days=ts_period)
         
         df_staking_all = load_staking_reward_from_db(stake_prev_start, stake_end)

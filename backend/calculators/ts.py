@@ -5,6 +5,7 @@ TS 数据计算模块 (SQL 版)
 import pandas as pd
 import logging
 import traceback
+import time
 from typing import Dict, Any, List, Optional
 from sqlalchemy import text
 from utils.db_loader import get_db_engine
@@ -14,46 +15,53 @@ logger = logging.getLogger(__name__)
 def calculate_ts_sql(start_date: str, end_date: str) -> Dict[str, Any]:
     """
     计算 TS 数据 (完全基于 SQL 聚合)
-    
-    Args:
-        start_date: 开始日期 (YYYY-MM-DD)
-        end_date: 结束日期 (YYYY-MM-DD)
-        
-    Returns:
-        包含 metrics, dailyData, topUsers 的字典
     """
     engine = get_db_engine()
     if engine is None:
         return _get_empty_response()
 
+    start_total = time.time()
     try:
-        # 1. 计算日期边界 (TS 使用 UTC+8 8:00am 作为换日点)
-        # 对应 UTC 0:00am (数据库存储的是 UTC)
+        # 1. 计算日期边界
         current_start = pd.to_datetime(start_date)
         current_end = pd.to_datetime(end_date) + pd.Timedelta(days=1)
         
-        # 环比周期
         period_days = (current_end - current_start).days
         prev_start = current_start - pd.Timedelta(days=period_days)
         prev_end = current_start
 
-        # 2. 获取平均价格 (SQL)
+        logger.info(f"[Perf] 开始计算 TS 数据: {start_date} ~ {end_date} (环比从 {prev_start.date()})")
+
+        # 2. 获取平均价格
+        t0 = time.time()
         avg_price_current = _fetch_avg_price(engine, current_start, current_end)
         avg_price_prev = _fetch_avg_price(engine, prev_start, prev_end)
+        logger.info(f"[Perf] 价格查询耗时: {time.time() - t0:.2f}s")
 
-        # 3. 计算本期和上期的核心指标 (SQL 聚合)
+        # 3. 计算本期和上期的核心指标
+        t1 = time.time()
         metrics_current = _fetch_period_metrics_sql(engine, current_start, current_end, avg_price_current)
+        logger.info(f"[Perf] 本期指标查询耗时: {time.time() - t1:.2f}s")
+        
+        t2 = time.time()
         metrics_prev = _fetch_period_metrics_sql(engine, prev_start, prev_end, avg_price_prev)
+        logger.info(f"[Perf] 上期指标查询耗时: {time.time() - t2:.2f}s")
 
         # 4. 计算综合指标和 Delta
         final_metrics = _merge_metrics(metrics_current, metrics_prev)
 
-        # 5. 获取日数据 (SQL)
+        # 5. 获取日数据
+        t3 = time.time()
         daily_data = _fetch_daily_data_sql(engine, current_start, current_end)
+        logger.info(f"[Perf] 日趋势查询耗时: {time.time() - t3:.2f}s (共 {len(daily_data)} 条记录)")
 
-        # 6. 获取前10大户 (SQL)
+        # 6. 获取前10大户
+        t4 = time.time()
         top_users = _fetch_top_users_sql(engine, current_start, current_end)
+        logger.info(f"[Perf] 大户查询耗时: {time.time() - t4:.2f}s")
 
+        logger.info(f"[Perf] TS 总计耗时: {time.time() - start_total:.2f}s")
+        
         return {
             'metrics': final_metrics,
             'dailyData': daily_data,
@@ -98,18 +106,6 @@ def _fetch_period_metrics_sql(engine, start_utc, end_utc, avg_price: float) -> D
     FROM take_a_SHIT
     WHERE block_time_dt >= :start AND block_time_dt < :end
     """
-    
-    # 子查询: 计算平均时间间隔 (使用窗口函数)
-    interval_query = """
-    SELECT AVG(diff) / 60 as avg_interval
-    FROM (
-        SELECT 
-            TIMESTAMPDIFF(SECOND, LAG(block_time_dt) OVER (PARTITION BY to_user ORDER BY block_time_dt), block_time_dt) as diff
-        FROM take_a_SHIT
-        WHERE block_time_dt >= :start AND block_time_dt < :end
-    ) t
-    WHERE diff IS NOT NULL
-    """
 
     try:
         params = {
@@ -118,7 +114,6 @@ def _fetch_period_metrics_sql(engine, start_utc, end_utc, avg_price: float) -> D
         }
         with engine.connect() as conn:
             row = conn.execute(text(query), params).fetchone()
-            interval_row = conn.execute(text(interval_query), params).fetchone()
             
             ts_claim = int(row[0] or 0)
             total_amount = float(row[1] or 0.0)
@@ -130,7 +125,7 @@ def _fetch_period_metrics_sql(engine, start_utc, end_utc, avg_price: float) -> D
             ref2 = int(row[7] or 0)
             revenue = float(row[8] or 0.0)
             total_tx = int(row[9] or 0)
-            avg_interval = float(interval_row[0] or 0.0)
+            avg_interval = 0.0 # 移除重型窗口函数计算，提高大数据量下的响应速度
             
             # 计算衍生指标 (层级逻辑: ref1 包含 ref2, tsClaim 包含 ref1)
             two_ref_tx = ref2
