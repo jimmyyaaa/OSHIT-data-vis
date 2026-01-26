@@ -153,7 +153,8 @@ def _detect_pos_anomalies_sql(engine, start_utc, end_utc, date_label):
     query = """
     SELECT 
         to_user as address,
-        COUNT(*) as count
+        COUNT(*) as count,
+        GROUP_CONCAT(amount ORDER BY block_time_dt ASC) as amounts
     FROM shit_pos_rewards
     WHERE block_time_dt >= :start AND block_time_dt < :end
     GROUP BY to_user
@@ -169,13 +170,15 @@ def _detect_pos_anomalies_sql(engine, start_utc, end_utc, date_label):
             })
             
         for _, row in df.iterrows():
+            count = int(row['count'])
+            amounts_str = str(row['amounts'])
             res.append({
                 "date": date_label,
                 "address": row['address'],
                 "type": "POS_DUPLICATE",
-                "description": f"POS 同日重复领取: {row['count']}次",
+                "description": f"POS 同日重复领取: {count}次 (金额: {amounts_str})",
                 "severity": "high",
-                "data": {"count": int(row['count'])}
+                "data": {"count": count, "amounts": amounts_str}
             })
     except Exception as e:
         logger.error(f"POS 异常 SQL 查询失败: {e}")
@@ -186,7 +189,8 @@ def _detect_staking_anomalies_sql(engine, start_utc, end_utc, date_label):
     query = """
     SELECT 
         to_user as address,
-        COUNT(*) as count
+        COUNT(*) as count,
+        GROUP_CONCAT(amount ORDER BY block_time_dt ASC) as amounts
     FROM shit_staking_rewards
     WHERE block_time_dt >= :start AND block_time_dt < :end
     GROUP BY to_user
@@ -202,13 +206,15 @@ def _detect_staking_anomalies_sql(engine, start_utc, end_utc, date_label):
             })
             
         for _, row in df.iterrows():
+            count = int(row['count'])
+            amounts_str = str(row['amounts'])
             res.append({
                 "date": date_label,
                 "address": row['address'],
                 "type": "STAKING_DUPLICATE",
-                "description": f"质押奖励同日重复领取: {row['count']}次",
+                "description": f"质押奖励同日重复领取: {count}次 (金额: {amounts_str})",
                 "severity": "high",
-                "data": {"count": int(row['count'])}
+                "data": {"count": count, "amounts": amounts_str}
             })
     except Exception as e:
         logger.error(f"Staking 异常 SQL 查询失败: {e}")

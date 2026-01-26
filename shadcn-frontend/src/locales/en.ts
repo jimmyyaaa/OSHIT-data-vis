@@ -179,8 +179,8 @@ export const enTranslations = {
             TS_LUCKY_DRAW_OVER: 'Critical Error: Lucky draws {draws} (Limit: 3)',
             TS_OVER_CLAIM: 'TS Claims: {claims} (Limit: 20)',
             TS_LOGIC_ERROR: 'Logic Error: {claims} claims with {draws} draws',
-            POS_DUPLICATE: 'POS duplicate claims: {count} times',
-            STAKING_DUPLICATE: 'Staking duplicate claims: {count} times',
+            POS_DUPLICATE: 'POS duplicate claims: {count} times (Amounts: {amounts})',
+            STAKING_DUPLICATE: 'Staking duplicate claims: {count} times (Amounts: {amounts})',
         },
         levels: {
             high: 'High',

@@ -179,8 +179,8 @@ export const zhTranslations = {
             TS_LUCKY_DRAW_OVER: '严重错误: 抽奖次数溢出 ({draws}次, 标准上限3次)',
             TS_OVER_CLAIM: 'TS 领取次数超限: {claims}次 (标准上限20次)',
             TS_LOGIC_ERROR: '抽奖逻辑不匹配: 领取{claims}次但抽奖{draws}次 (未达预期收益)',
-            POS_DUPLICATE: 'POS 同日重复领取: {count}次',
-            STAKING_DUPLICATE: '质押奖励同日重复领取: {count}次',
+            POS_DUPLICATE: 'POS 同日重复领取: {count}次 (金额: {amounts})',
+            STAKING_DUPLICATE: '质押奖励同日重复领取: {count}次 (金额: {amounts})',
         },
         levels: {
             high: '高风险',
