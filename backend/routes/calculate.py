@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 from .schemas import (
     DateRangeRequest, SingleDateRequest,
     StakingMetrics, DailyDataEntry, TopStaker, StakingCalculateResponse,
-    TSMetrics, DailyTSDataEntry, HeatmapData, TopTSUser, RepeatRankingEntry, TSCalculateResponse,
-    POSMetrics, DailyPOSDataEntry, TopPOSUser, DuplicateAddressEntry, POSCalculateResponse,
+    TSMetrics, DailyTSDataEntry, TopTSUser, TSCalculateResponse,
+    POSMetrics, DailyPOSDataEntry, TopPOSUser, POSCalculateResponse,
     ShitCodeMetrics, DailyShitCodeDataEntry, TopShitCodeUser, ShitCodeCalculateResponse,
     RevenueMetrics, DailyRevenueDataEntry, RevenueCompositionEntry, RevenueCalculateResponse,
     DeFiMetrics, DailyDeFiDataEntry, DeFiCalculateResponse,
@@ -112,9 +112,7 @@ def calculate_ts(request: DateRangeRequest):
         return TSCalculateResponse(
             metrics=TSMetrics(**result['metrics']),
             dailyData=[DailyTSDataEntry(**item) for item in result['dailyData']],
-            heatmapData=HeatmapData(dates=[], hours=[], data=[]), 
-            topUsers=[TopTSUser(**item) for item in result['topUsers']],
-            repeatRanking=[]  
+            topUsers=[TopTSUser(**item) for item in result['topUsers']]
         )
     
     except Exception as e:
@@ -183,8 +181,7 @@ def calculate_pos(request: DateRangeRequest):
         return POSCalculateResponse(
             metrics=POSMetrics(**result['metrics']),
             dailyData=[DailyPOSDataEntry(**item) for item in result['dailyData']],
-            topUsers=[TopPOSUser(**item) for item in result['topUsers']],
-            duplicateAddresses=[]  # POS 不需要重复交易地址
+            topUsers=[TopPOSUser(**item) for item in result['topUsers']]
         )
     
     except HTTPException:

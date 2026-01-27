@@ -120,17 +120,29 @@ def _calculate_daily_data(
     df_amount: pd.DataFrame,
     df_log: pd.DataFrame
 ) -> List[Dict[str, Any]]:
-    """计算日数据"""
+    """计算日数据（遵循 12pm 边界逻辑）"""
     
+    # 辅助函数：根据 12pm 边界转换业务日期
+    def get_business_date(ts):
+        if ts.hour < 12:
+            return (ts - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+        return ts.strftime('%Y-%m-%d')
+
     # 聚合 STAKE 数据
     stake_daily = df_amount[df_amount['Type'] == 'STAKE'].copy()
-    stake_daily['date'] = stake_daily[TIMESTAMP_COL].dt.strftime('%Y-%m-%d')
-    stake_agg = stake_daily.groupby('date')['SHIT Amount'].sum()
+    if not stake_daily.empty:
+        stake_daily['date'] = stake_daily[TIMESTAMP_COL].apply(get_business_date)
+        stake_agg = stake_daily.groupby('date')['SHIT Amount'].sum()
+    else:
+        stake_agg = pd.Series(dtype=float)
     
     # 聚合奖励数据
     reward_daily = df_log.copy()
-    reward_daily['date'] = reward_daily[TIMESTAMP_COL].dt.strftime('%Y-%m-%d')
-    reward_agg = reward_daily.groupby('date')['SHIT Sent'].sum()
+    if not reward_daily.empty:
+        reward_daily['date'] = reward_daily[TIMESTAMP_COL].apply(get_business_date)
+        reward_agg = reward_daily.groupby('date')['SHIT Sent'].sum()
+    else:
+        reward_agg = pd.Series(dtype=float)
     
     # 合并日期并构建结果
     all_dates = sorted(set(stake_agg.index) | set(reward_agg.index))

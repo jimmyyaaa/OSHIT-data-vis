@@ -38,7 +38,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             title: t.sidebar.dashboard,
             url: '/',
             icon: Home,
-            isActive: true,
         },
         {
             title: t.sidebar.statistics,

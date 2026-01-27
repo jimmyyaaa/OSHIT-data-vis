@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronRight, type LucideIcon } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import {
     Collapsible,
@@ -37,16 +37,28 @@ export function NavMain({
 }) {
     const { getTranslations } = useLocale()
     const t = getTranslations()
+    const location = useLocation()
+
+    // 判断路径是否激活
+    const isUrlActive = (url: string) => {
+        if (url === '/') {
+            return location.pathname === '/'
+        }
+        return location.pathname.startsWith(url)
+    }
 
     return (
         <SidebarGroup>
             <SidebarGroupLabel>{t.sidebar.platform}</SidebarGroupLabel>
             <SidebarMenu>
-                {items.map((item) => (
-                    !item.items || item.items.length === 0 ? (
-                        // 没有子菜单的项目（Dashboard）
+                {items.map((item) => {
+                    const hasSubItems = item.items && item.items.length > 0
+                    const isGroupActive = isUrlActive(item.url)
+
+                    return !hasSubItems ? (
+                        // 没有子菜单的项目（Dashboard, Anomaly）
                         <SidebarMenuItem key={item.title}>
-                            <SidebarMenuButton asChild tooltip={item.title}>
+                            <SidebarMenuButton asChild tooltip={item.title} isActive={isGroupActive}>
                                 <Link to={item.url}>
                                     {item.icon && <item.icon />}
                                     <span>{item.title}</span>
@@ -58,7 +70,7 @@ export function NavMain({
                         <Collapsible
                             key={item.title}
                             asChild
-                            defaultOpen={item.isActive}
+                            defaultOpen={isGroupActive || item.isActive}
                             className="group/collapsible"
                         >
                             <SidebarMenuItem>
@@ -73,7 +85,7 @@ export function NavMain({
                                     <SidebarMenuSub>
                                         {item.items?.map((subItem) => (
                                             <SidebarMenuSubItem key={subItem.title}>
-                                                <SidebarMenuSubButton asChild>
+                                                <SidebarMenuSubButton asChild isActive={location.pathname === subItem.url}>
                                                     <Link to={subItem.url}>
                                                         <span>{subItem.title}</span>
                                                     </Link>
@@ -85,7 +97,7 @@ export function NavMain({
                             </SidebarMenuItem>
                         </Collapsible>
                     )
-                ))}
+                })}
             </SidebarMenu>
         </SidebarGroup>
     )

@@ -16,7 +16,6 @@ interface CalculateResponse {
     dailyData: Array<Record<string, any>>;
     topXxx?: Array<Record<string, any>>;
     composition?: Array<Record<string, any>>;
-    heatmapData?: Record<string, any>;
     [key: string]: any;
 }
 

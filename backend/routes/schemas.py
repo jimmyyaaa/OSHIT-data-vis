@@ -98,8 +98,6 @@ class TSMetrics(BaseModel):
     totalAmountCurrent: float
     uniqueAddressesCurrent: int
     meanClaimsCurrent: float
-    medianClaimsCurrent: float
-    avgIntervalCurrent: float
     wolfTxCurrent: int
     oneRefTxCurrent: int
     twoRefTxCurrent: int
@@ -110,14 +108,12 @@ class TSMetrics(BaseModel):
     shitCostCurrent: float
     roiCurrent: float
     
-    # Previous (16)
+    # Previous (14)
     totalTxPrev: Optional[int] = None
     tsClaimPrev: Optional[int] = None
     totalAmountPrev: Optional[float] = None
     uniqueAddressesPrev: Optional[int] = None
     meanClaimsPrev: Optional[float] = None
-    medianClaimsPrev: Optional[float] = None
-    avgIntervalPrev: Optional[float] = None
     wolfTxPrev: Optional[int] = None
     oneRefTxPrev: Optional[int] = None
     twoRefTxPrev: Optional[int] = None
@@ -128,14 +124,12 @@ class TSMetrics(BaseModel):
     shitCostPrev: Optional[float] = None
     roiPrev: Optional[float] = None
     
-    # Delta (16) - None means "NA"
+    # Delta (14) - None means "NA"
     totalTxDelta: Optional[float] = None
     tsClaimDelta: Optional[float] = None
     totalAmountDelta: Optional[float] = None
     uniqueAddressesDelta: Optional[float] = None
     meanClaimsDelta: Optional[float] = None
-    medianClaimsDelta: Optional[float] = None
-    avgIntervalDelta: Optional[float] = None
     wolfTxDelta: Optional[float] = None
     oneRefTxDelta: Optional[float] = None
     twoRefTxDelta: Optional[float] = None
@@ -155,13 +149,6 @@ class DailyTSDataEntry(BaseModel):
     solReceived: float
 
 
-class HeatmapData(BaseModel):
-    """热力图数据"""
-    dates: List[str]
-    hours: List[int]
-    data: List[List[int]]
-
-
 class TopTSUser(BaseModel):
     """TS 活跃用户"""
     address: str
@@ -170,19 +157,11 @@ class TopTSUser(BaseModel):
     shitSent: float
 
 
-class RepeatRankingEntry(BaseModel):
-    """重复领取排行条目"""
-    address: str
-    count: int
-
-
 class TSCalculateResponse(BaseModel):
     """TS 计算响应"""
     metrics: TSMetrics
     dailyData: List[DailyTSDataEntry]
-    heatmapData: HeatmapData
     topUsers: List[TopTSUser]
-    repeatRanking: List[RepeatRankingEntry]
 
 
 # ============================================
@@ -197,25 +176,22 @@ class POSMetrics(BaseModel):
     maxAmountCurrent: float
     minAmountCurrent: float
     totalRevenueCurrent: float
-    emissionEfficiencyCurrent: float
     avgRewardCurrent: float
     
-    # Previous (7)
+    # Previous (6)
     totalTxPrev: Optional[int] = None
     totalAmountPrev: Optional[float] = None
     maxAmountPrev: Optional[float] = None
     minAmountPrev: Optional[float] = None
     totalRevenuePrev: Optional[float] = None
-    emissionEfficiencyPrev: Optional[float] = None
     avgRewardPrev: Optional[float] = None
     
-    # Delta (7) - None means "NA"
+    # Delta (6) - None means "NA"
     totalTxDelta: Optional[float] = None
     totalAmountDelta: Optional[float] = None
     maxAmountDelta: Optional[float] = None
     minAmountDelta: Optional[float] = None
     totalRevenueDelta: Optional[float] = None
-    emissionEfficiencyDelta: Optional[float] = None
     avgRewardDelta: Optional[float] = None
 
 
@@ -234,19 +210,11 @@ class TopPOSUser(BaseModel):
     txCount: int
 
 
-class DuplicateAddressEntry(BaseModel):
-    """重复交易地址条目"""
-    address: str
-    date: str
-    txCount: int
-
-
 class POSCalculateResponse(BaseModel):
     """POS 计算响应"""
     metrics: POSMetrics
     dailyData: List[DailyPOSDataEntry]
     topUsers: List[TopPOSUser]
-    duplicateAddresses: List[DuplicateAddressEntry]
 
 
 # ============================================

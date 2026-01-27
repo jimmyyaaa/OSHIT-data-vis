@@ -13,7 +13,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
     DualAxisLineChart,
     HorizontalBarChart,
-    Heatmap,
 } from "@/components/charts";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useLocale } from "@/contexts/LocaleContext";
@@ -28,8 +27,6 @@ interface TSMetrics {
     totalAmountCurrent: number | null;
     uniqueAddressesCurrent: number | null;
     meanClaimsCurrent: number | null;
-    medianClaimsCurrent: number | null;
-    avgIntervalCurrent: number | null;
     wolfTxCurrent: number | null;
     oneRefTxCurrent: number | null;
     twoRefTxCurrent: number | null;
@@ -44,8 +41,6 @@ interface TSMetrics {
     totalAmountDelta: number | null;
     uniqueAddressesDelta: number | null;
     meanClaimsDelta: number | null;
-    medianClaimsDelta: number | null;
-    avgIntervalDelta: number | null;
     wolfTxDelta: number | null;
     oneRefTxDelta: number | null;
     twoRefTxDelta: number | null;
@@ -64,12 +59,6 @@ interface DailyTSDataEntry {
     solReceived: number;
 }
 
-interface HeatmapData {
-    dates: string[];
-    hours: number[];
-    data: Array<[number, number, number]>;
-}
-
 interface TopTSUser {
     address: string;
     fullAddress: string;
@@ -77,17 +66,10 @@ interface TopTSUser {
     shitSent: number;
 }
 
-interface RepeatRankingEntry {
-    address: string;
-    count: number;
-}
-
 interface TSData {
     metrics: TSMetrics;
     dailyData: DailyTSDataEntry[];
-    heatmapData: HeatmapData;
     topUsers: TopTSUser[];
-    repeatRanking: RepeatRankingEntry[];
 }
 
 export default function TSPage() {
@@ -264,18 +246,6 @@ export default function TSPage() {
                                                 format="decimal"
                                             />
                                             <StatisticCard
-                                                title={t.ts.medianClaims}
-                                                value={data?.metrics.medianClaimsCurrent ?? null}
-                                                delta={data?.metrics.medianClaimsDelta ?? null}
-                                                format="decimal"
-                                            />
-                                            <StatisticCard
-                                                title={t.ts.avgInterval}
-                                                value={data?.metrics.avgIntervalCurrent ?? null}
-                                                delta={data?.metrics.avgIntervalDelta ?? null}
-                                                format="decimal"
-                                            />
-                                            <StatisticCard
                                                 title={t.ts.wolfTx}
                                                 value={data?.metrics.wolfTxCurrent ?? null}
                                                 unit={t.common.times}
@@ -354,7 +324,6 @@ export default function TSPage() {
                                 <Tabs defaultValue="trends" className="w-full">
                                     <TabsList>
                                         <TabsTrigger value="trends">{t.ts.trends}</TabsTrigger>
-                                        <TabsTrigger value="heatmap">{t.ts.heatmap}</TabsTrigger>
                                         <TabsTrigger value="topUsers">{t.ts.topUsers}</TabsTrigger>
                                     </TabsList>
 
@@ -379,22 +348,6 @@ export default function TSPage() {
                                         />
                                     </TabsContent>
 
-                                    <TabsContent value="heatmap" className="space-y-4">
-                                        {data?.heatmapData && data.heatmapData.dates.length > 0 ? (
-                                            <Heatmap
-                                                title={t.ts.heatmap}
-                                                dates={data.heatmapData.dates}
-                                                hours={data.heatmapData.hours}
-                                                data={data.heatmapData.data}
-                                                height={380}
-                                            />
-                                        ) : (
-                                            <div className="h-80 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
-                                                <p className="text-muted-foreground">{t.common.noData}</p>
-                                            </div>
-                                        )}
-                                    </TabsContent>
-
                                     <TabsContent value="topUsers" className="space-y-4">
                                         <HorizontalBarChart
                                             title={t.ts.topUsers}
@@ -409,39 +362,6 @@ export default function TSPage() {
                                         />
                                     </TabsContent>
                                 </Tabs>
-                            </div>
-
-                            {/* 重复 Claim 排行 */}
-                            <div>
-                                <h2 className="text-xl font-bold mb-4">{t.ts.repeatRanking}</h2>
-                                <div className="border rounded-lg overflow-hidden">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b bg-muted">
-                                                <th className="px-4 py-2 text-left font-semibold">{t.common.rank}</th>
-                                                <th className="px-4 py-2 text-left font-semibold">{t.common.address}</th>
-                                                <th className="px-4 py-2 text-right font-semibold">{t.ts.claimCount}</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(data?.repeatRanking ?? []).length > 0 ? (
-                                                data?.repeatRanking?.map((entry, idx) => (
-                                                    <tr key={idx} className="border-b hover:bg-muted/50">
-                                                        <td className="px-4 py-2">{idx + 1}</td>
-                                                        <td className="px-4 py-2 font-mono text-xs">{entry.address}</td>
-                                                        <td className="px-4 py-2 text-right">{entry.count}</td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
-                                                        {t.common.noData}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
                             </div>
                         </>
                     )}

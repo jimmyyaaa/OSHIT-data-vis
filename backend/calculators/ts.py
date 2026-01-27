@@ -9,12 +9,13 @@ import time
 from typing import Dict, Any, List, Optional
 from sqlalchemy import text
 from utils.db_loader import get_db_engine
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
 def calculate_ts_sql(start_date: str, end_date: str) -> Dict[str, Any]:
     """
-    计算 TS 数据 (完全基于 SQL 聚合)
+    计算 TS 数据 (完全基于 SQL 聚合，多线程并行优化)
     """
     engine = get_db_engine()
     if engine is None:
@@ -32,33 +33,30 @@ def calculate_ts_sql(start_date: str, end_date: str) -> Dict[str, Any]:
 
         logger.info(f"[Perf] 开始计算 TS 数据: {start_date} ~ {end_date} (环比从 {prev_start.date()})")
 
-        # 2. 获取平均价格
+        # 2. 获取平均价格 (一次性查出两个时段的价格)
         t0 = time.time()
-        avg_price_current = _fetch_avg_price(engine, current_start, current_end)
-        avg_price_prev = _fetch_avg_price(engine, prev_start, prev_end)
+        avg_prices = _fetch_combined_avg_prices(engine, prev_start, current_end, current_start)
+        avg_price_prev = avg_prices['prev']
+        avg_price_current = avg_prices['current']
         logger.info(f"[Perf] 价格查询耗时: {time.time() - t0:.2f}s")
 
-        # 3. 计算本期和上期的核心指标
-        t1 = time.time()
-        metrics_current = _fetch_period_metrics_sql(engine, current_start, current_end, avg_price_current)
-        logger.info(f"[Perf] 本期指标查询耗时: {time.time() - t1:.2f}s")
+        # 3. 使用线程池并行执行主要查询
+        t_parallel = time.time()
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_curr = executor.submit(_fetch_period_metrics_sql, engine, current_start, current_end, avg_price_current)
+            future_prev = executor.submit(_fetch_period_metrics_sql, engine, prev_start, prev_end, avg_price_prev)
+            future_daily = executor.submit(_fetch_daily_data_sql, engine, current_start, current_end)
+            future_top = executor.submit(_fetch_top_users_sql, engine, current_start, current_end)
+
+            metrics_current = future_curr.result()
+            metrics_prev = future_prev.result()
+            daily_data = future_daily.result()
+            top_users = future_top.result()
         
-        t2 = time.time()
-        metrics_prev = _fetch_period_metrics_sql(engine, prev_start, prev_end, avg_price_prev)
-        logger.info(f"[Perf] 上期指标查询耗时: {time.time() - t2:.2f}s")
+        logger.info(f"[Perf] 并行查询部分总耗时: {time.time() - t_parallel:.2f}s")
 
         # 4. 计算综合指标和 Delta
         final_metrics = _merge_metrics(metrics_current, metrics_prev)
-
-        # 5. 获取日数据
-        t3 = time.time()
-        daily_data = _fetch_daily_data_sql(engine, current_start, current_end)
-        logger.info(f"[Perf] 日趋势查询耗时: {time.time() - t3:.2f}s (共 {len(daily_data)} 条记录)")
-
-        # 6. 获取前10大户
-        t4 = time.time()
-        top_users = _fetch_top_users_sql(engine, current_start, current_end)
-        logger.info(f"[Perf] 大户查询耗时: {time.time() - t4:.2f}s")
 
         logger.info(f"[Perf] TS 总计耗时: {time.time() - start_total:.2f}s")
         
@@ -71,22 +69,28 @@ def calculate_ts_sql(start_date: str, end_date: str) -> Dict[str, Any]:
         logger.error(f"SQL 计算 TS 数据失败: {str(e)}\n{traceback.format_exc()}")
         return _get_empty_response()
 
-def _fetch_avg_price(engine, start_utc, end_utc) -> float:
-    """从数据库计算平均价格"""
+def _fetch_combined_avg_prices(engine, start_utc, end_utc, split_utc) -> Dict[str, float]:
+    """一次性查询两个周期的平均价格"""
     query = """
-    SELECT AVG(price) as avg_price 
+    SELECT 
+        AVG(CASE WHEN timestamp_utc >= :start AND timestamp_utc < :split THEN price END) as avg_prev,
+        AVG(CASE WHEN timestamp_utc >= :split AND timestamp_utc < :end THEN price END) as avg_curr
     FROM shit_price_history 
     WHERE timestamp_utc >= :start AND timestamp_utc < :end
     """
     try:
         with engine.connect() as conn:
-            result = conn.execute(text(query), {
+            row = conn.execute(text(query), {
                 "start": start_utc.strftime('%Y-%m-%d %H:%M:%S'),
-                "end": end_utc.strftime('%Y-%m-%d %H:%M:%S')
+                "end": end_utc.strftime('%Y-%m-%d %H:%M:%S'),
+                "split": split_utc.strftime('%Y-%m-%d %H:%M:%S')
             }).fetchone()
-            return float(result[0]) if result and result[0] else 1.0
+            return {
+                'prev': float(row[0]) if row and row[0] is not None else 1.0,
+                'current': float(row[1]) if row and row[1] is not None else 1.0
+            }
     except Exception:
-        return 1.0
+        return {'prev': 1.0, 'current': 1.0}
 
 def _fetch_period_metrics_sql(engine, start_utc, end_utc, avg_price: float) -> Dict[str, float]:
     """单周期 SQL 聚合指标计算"""
@@ -125,7 +129,6 @@ def _fetch_period_metrics_sql(engine, start_utc, end_utc, avg_price: float) -> D
             ref2 = int(row[7] or 0)
             revenue = float(row[8] or 0.0)
             total_tx = int(row[9] or 0)
-            avg_interval = 0.0 # 移除重型窗口函数计算，提高大数据量下的响应速度
             
             # 计算衍生指标 (层级逻辑: ref1 包含 ref2, tsClaim 包含 ref1)
             two_ref_tx = ref2
@@ -141,8 +144,6 @@ def _fetch_period_metrics_sql(engine, start_utc, end_utc, avg_price: float) -> D
                 'totalAmount': total_amount,
                 'uniqueAddresses': unique_addresses,
                 'meanClaims': (ts_claim / unique_addresses) if unique_addresses > 0 else 0.0,
-                'medianClaims': 0.0, # 中位数以后考虑单独小查询，性能开销大
-                'avgInterval': avg_interval,
                 'wolfTx': wolf_tx,
                 'oneRefTx': one_ref_tx,
                 'twoRefTx': two_ref_tx,

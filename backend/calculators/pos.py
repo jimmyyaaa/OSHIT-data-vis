@@ -86,7 +86,6 @@ def _compute_period_metrics(df_pos: pd.DataFrame) -> Dict[str, float]:
             'maxAmount': 0.0,
             'minAmount': 0.0,
             'totalRevenue': 0.0,
-            'emissionEfficiency': 0.0,
             'avgReward': 0.0,
         }
     
@@ -98,7 +97,6 @@ def _compute_period_metrics(df_pos: pd.DataFrame) -> Dict[str, float]:
     
     # 收入相关指标
     total_revenue = float(df_pos['SOL Received'].sum())
-    emission_efficiency = total_amount / total_revenue if total_revenue > 0 else 0.0
     avg_reward = total_amount / total_tx if total_tx > 0 else 0.0
     
     return {
@@ -107,7 +105,6 @@ def _compute_period_metrics(df_pos: pd.DataFrame) -> Dict[str, float]:
         'maxAmount': max_amount,
         'minAmount': min_amount,
         'totalRevenue': total_revenue,
-        'emissionEfficiency': emission_efficiency,
         'avgReward': avg_reward,
     }
 

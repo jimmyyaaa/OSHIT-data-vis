@@ -48,17 +48,10 @@ interface TopPOSUser {
     txCount: number;
 }
 
-interface DuplicateAddressEntry {
-    address: string;
-    date: string;
-    txCount: number;
-}
-
 interface POSData {
     metrics: POSMetrics;
     dailyData: DailyPOSDataEntry[];
     topUsers: TopPOSUser[];
-    duplicateAddresses: DuplicateAddressEntry[];
 }
 
 export default function POSPage() {
@@ -281,41 +274,6 @@ export default function POSPage() {
                                         />
                                     </TabsContent>
                                 </Tabs>
-                            </div>
-
-                            {/* 重复交易地址 */}
-                            <div>
-                                <h2 className="text-xl font-bold mb-4">{t.pos.duplicateAddresses}</h2>
-                                <div className="border rounded-lg overflow-hidden">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b bg-muted">
-                                                <th className="px-4 py-2 text-left font-semibold">{t.common.rank}</th>
-                                                <th className="px-4 py-2 text-left font-semibold">{t.common.address}</th>
-                                                <th className="px-4 py-2 text-left font-semibold">{t.pos.date}</th>
-                                                <th className="px-4 py-2 text-right font-semibold">{t.pos.txCount}</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(data?.duplicateAddresses ?? []).length > 0 ? (
-                                                data?.duplicateAddresses?.map((entry, idx) => (
-                                                    <tr key={idx} className="border-b hover:bg-muted/50">
-                                                        <td className="px-4 py-2">{idx + 1}</td>
-                                                        <td className="px-4 py-2 font-mono text-xs">{entry.address}</td>
-                                                        <td className="px-4 py-2">{entry.date}</td>
-                                                        <td className="px-4 py-2 text-right">{entry.txCount}</td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                                                        {t.common.noData}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
                             </div>
                         </>
                     )}
